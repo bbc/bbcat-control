@@ -1,6 +1,7 @@
 #ifndef __AUDIO_OBJECT_CURSOR__
 #define __AUDIO_OBJECT_CURSOR__
 
+#include "AudioObject.h"
 #include "AudioObjectParameters.h"
 
 BBC_AUDIOTOOLBOX_START
@@ -42,25 +43,25 @@ public:
   virtual uint_t GetChannel() const = 0;
 
   /*--------------------------------------------------------------------------------*/
-  /** Get current audio object textual data
-   *
-   * @return true if information filled in
+  /** Get current audio object
    */
   /*--------------------------------------------------------------------------------*/
-  virtual bool GetAudioObjectText(ParameterSet& data) const {UNUSED_PARAMETER(data); return false;}
+  virtual AudioObject *GetAudioObject() const = 0;
 
   /*--------------------------------------------------------------------------------*/
   /** Return audio object parameters at current time
+   *
+   * @return true if object parameters are valid and returned in currentparameters
    */
   /*--------------------------------------------------------------------------------*/
-  virtual const AudioObjectParameters *GetObjectParameters() const = 0;
+  virtual bool GetObjectParameters(AudioObjectParameters& currentparameters) const = 0;
 
   /*--------------------------------------------------------------------------------*/
   /** Set audio object parameters for current time
    */
   /*--------------------------------------------------------------------------------*/
-  virtual void SetObjectParameters(const AudioObjectParameters& objparameters) {
-    UNUSED_PARAMETER(objparameters);
+  virtual void SetObjectParameters(const AudioObjectParameters& newparameters) {
+    UNUSED_PARAMETER(newparameters);
   }
 
   /*--------------------------------------------------------------------------------*/
@@ -68,6 +69,32 @@ public:
    */
   /*--------------------------------------------------------------------------------*/
   virtual void EndChanges() {}
+
+#if ENABLE_JSON
+  /*--------------------------------------------------------------------------------*/
+  /** Convert parameters to a JSON object
+   */
+  /*--------------------------------------------------------------------------------*/
+  virtual json_spirit::mObject ToJSON() const {json_spirit::mObject obj; obj["parameters"] = ToJSONArray(); return obj;}
+
+  /*--------------------------------------------------------------------------------*/
+  /** Convert parameters to a JSON array
+   */
+  /*--------------------------------------------------------------------------------*/
+  virtual json_spirit::mArray ToJSONArray() const {json_spirit::mArray array; return array;}
+
+  /*--------------------------------------------------------------------------------*/
+  /** Operator overload
+   */
+  /*--------------------------------------------------------------------------------*/
+  operator json_spirit::mObject() const {return ToJSON();}
+ 
+  /*--------------------------------------------------------------------------------*/
+  /** Convert parameters to a JSON string
+   */
+  /*--------------------------------------------------------------------------------*/
+  std::string ToJSONString() const {return json_spirit::write(ToJSON(), json_spirit::pretty_print);}
+#endif
 };
 
 BBC_AUDIOTOOLBOX_END

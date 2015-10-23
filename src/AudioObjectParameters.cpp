@@ -98,28 +98,28 @@ AudioObjectParameters& AudioObjectParameters::operator = (const AudioObjectParam
 /*--------------------------------------------------------------------------------*/
 AudioObjectParameters& AudioObjectParameters::FromJSON(const json_spirit::mObject& obj, bool reset)
 {
-  Position     pval;
-  ParameterSet sval;
-  double       fval;
-  int          ival;
-  bool         bval;
+  Position        pval;
+  ParameterSet    sval;
+  double          fval;
+  int             ival;
+  bool            bval;
   
-  Set<>(Parameter_channel, values.channel, ival, obj, reset, 0U, &Limit0);
-  Set<>(Parameter_position, position, pval, obj, reset);
-  Set<>(Parameter_gain, values.gain, fval, obj, reset, 1.0);
-  Set<>(Parameter_width, values.width, fval, obj, reset, 0.0, &Limit0);
-  Set<>(Parameter_depth, values.depth, fval, obj, reset, 0.0, &Limit0);
-  Set<>(Parameter_height, values.height, fval, obj, reset, 0.0, &Limit0);
-  Set<>(Parameter_diffuseness, values.diffuseness, fval, obj, reset, 0.0, &Limit0to1);
-  Set<>(Parameter_delay, values.delay, fval, obj, reset, 0.0, &Limit0);
-  Set<>(Parameter_importance, values.importance, ival, obj, reset, (uint8_t)0, &LimitImportance);
-  Set<>(Parameter_dialogue, values.dialogue, ival, obj, reset, (uint8_t)0, &LimitDialogue);
-  Set<>(Parameter_channellock, values.channellock, bval, obj, reset);
-  Set<>(Parameter_interact, values.interact, bval, obj, reset);
-  Set<>(Parameter_interpolate, values.interpolate, bval, obj, reset);
-  Set<>(Parameter_interpolationtime, values.interpolationtime, fval, obj, reset);
-  Set<>(Parameter_onscreen, values.onscreen, bval, obj, reset);
-  Set<>(Parameter_othervalues, othervalues, sval, obj, reset);
+  SetFromJSON<>(Parameter_channel, values.channel, ival, obj, reset, 0U, &Limit0);
+  SetFromJSON<>(Parameter_position, position, pval, obj, reset);
+  SetFromJSON<>(Parameter_gain, values.gain, fval, obj, reset, 1.0);
+  SetFromJSON<>(Parameter_width, values.width, fval, obj, reset, 0.0, &Limit0);
+  SetFromJSON<>(Parameter_depth, values.depth, fval, obj, reset, 0.0, &Limit0);
+  SetFromJSON<>(Parameter_height, values.height, fval, obj, reset, 0.0, &Limit0);
+  SetFromJSON<>(Parameter_diffuseness, values.diffuseness, fval, obj, reset, 0.0, &Limit0to1);
+  SetFromJSON<>(Parameter_delay, values.delay, fval, obj, reset, 0.0, &Limit0);
+  SetFromJSON<>(Parameter_importance, values.importance, ival, obj, reset, (uint8_t)0, &LimitImportance);
+  SetFromJSON<>(Parameter_dialogue, values.dialogue, ival, obj, reset, (uint8_t)0, &LimitDialogue);
+  SetFromJSON<>(Parameter_channellock, values.channellock, bval, obj, reset);
+  SetFromJSON<>(Parameter_interact, values.interact, bval, obj, reset);
+  SetFromJSON<>(Parameter_interpolate, values.interpolate, bval, obj, reset);
+  SetFromJSON<>(Parameter_interpolationtime, values.interpolationtime, fval, obj, reset, (uint64_t)0, &ConvertSToNS);
+  SetFromJSON<>(Parameter_onscreen, values.onscreen, bval, obj, reset);
+  SetFromJSON<>(Parameter_othervalues, othervalues, sval, obj, reset);
   
   return *this;
 }
@@ -196,22 +196,22 @@ AudioObjectParameters& AudioObjectParameters::operator *= (const PositionTransfo
 /*--------------------------------------------------------------------------------*/
 void AudioObjectParameters::GetAll(ParameterSet& set, bool force) const
 {
-  Get<>(Parameter_channel, values.channel, set, force);
-  if (force || IsSet(Parameter_position)) position.SetParameters(set, ParameterNames[Parameter_position]);
-  Get<>(Parameter_gain, values.gain, set, force);
-  Get<>(Parameter_width, values.width, set, force);
-  Get<>(Parameter_depth, values.depth, set, force);
-  Get<>(Parameter_height, values.height, set, force);
-  Get<>(Parameter_diffuseness, values.diffuseness, set, force);
-  Get<>(Parameter_delay, values.delay, set, force);
-  Get<>(Parameter_importance, values.importance, set, force);
-  Get<>(Parameter_dialogue, values.dialogue, set, force);
-  Get<>(Parameter_channellock, values.channellock, set, force);
-  Get<>(Parameter_interact, values.interact, set, force);
-  Get<>(Parameter_interpolate, values.interpolate, set, force);
-  Get<>(Parameter_interpolationtime, values.interpolationtime, set, force);
-  Get<>(Parameter_onscreen, values.onscreen, set, force);
-  Get<>(Parameter_othervalues, othervalues, set, force);
+  GetParameterFromParameters<>(Parameter_channel, values.channel, set, force);
+  if (force || IsParameterSet(Parameter_position)) position.SetParameters(set, ParameterNames[Parameter_position]);
+  GetParameterFromParameters<>(Parameter_gain, values.gain, set, force);
+  GetParameterFromParameters<>(Parameter_width, values.width, set, force);
+  GetParameterFromParameters<>(Parameter_depth, values.depth, set, force);
+  GetParameterFromParameters<>(Parameter_height, values.height, set, force);
+  GetParameterFromParameters<>(Parameter_diffuseness, values.diffuseness, set, force);
+  GetParameterFromParameters<>(Parameter_delay, values.delay, set, force);
+  GetParameterFromParameters<>(Parameter_importance, values.importance, set, force);
+  GetParameterFromParameters<>(Parameter_dialogue, values.dialogue, set, force);
+  GetParameterFromParameters<>(Parameter_channellock, values.channellock, set, force);
+  GetParameterFromParameters<>(Parameter_interact, values.interact, set, force);
+  GetParameterFromParameters<>(Parameter_interpolate, values.interpolate, set, force);
+  GetParameterFromParameters<>(Parameter_interpolationtime, values.interpolationtime, set, force);
+  GetParameterFromParameters<>(Parameter_onscreen, values.onscreen, set, force);
+  GetParameterFromParameters<>(Parameter_othervalues, othervalues, set, force);
 }
 
 /*--------------------------------------------------------------------------------*/
@@ -234,22 +234,22 @@ std::string AudioObjectParameters::ToString(bool pretty) const
 /*--------------------------------------------------------------------------------*/
 void AudioObjectParameters::ToJSON(json_spirit::mObject& obj, bool force) const
 {
-  Get<>(Parameter_channel, (int)values.channel, obj, force);
-  GetEx<>(Parameter_position, position, obj, force);
-  Get<>(Parameter_gain, values.gain, obj, force);
-  Get<>(Parameter_width, values.width, obj, force);
-  Get<>(Parameter_depth, values.depth, obj, force);
-  Get<>(Parameter_height, values.height, obj, force);
-  Get<>(Parameter_diffuseness, values.diffuseness, obj, force);
-  Get<>(Parameter_delay, values.delay, obj, force);
-  Get<>(Parameter_importance, (int)values.importance, obj, force);
-  Get<>(Parameter_dialogue, (int)values.dialogue, obj, force);
-  Get<>(Parameter_channellock, values.channellock, obj, force);
-  Get<>(Parameter_interact, values.interact, obj, force);
-  Get<>(Parameter_interpolate, values.interpolate, obj, force);
-  Get<>(Parameter_interpolationtime, values.interpolationtime, obj, force);
-  Get<>(Parameter_onscreen, values.onscreen, obj, force);
-  GetEx<>(Parameter_othervalues, othervalues, obj, force);
+  SetToJSON<>(Parameter_channel, (int)values.channel, obj, force);
+  SetToJSON<>(Parameter_position, position, obj, force);
+  SetToJSON<>(Parameter_gain, values.gain, obj, force);
+  SetToJSON<>(Parameter_width, values.width, obj, force);
+  SetToJSON<>(Parameter_depth, values.depth, obj, force);
+  SetToJSON<>(Parameter_height, values.height, obj, force);
+  SetToJSON<>(Parameter_diffuseness, values.diffuseness, obj, force);
+  SetToJSON<>(Parameter_delay, values.delay, obj, force);
+  SetToJSON<>(Parameter_importance, (int)values.importance, obj, force);
+  SetToJSON<>(Parameter_dialogue, (int)values.dialogue, obj, force);
+  SetToJSON<>(Parameter_channellock, values.channellock, obj, force);
+  SetToJSON<>(Parameter_interact, values.interact, obj, force);
+  SetToJSON<>(Parameter_interpolate, values.interpolate, obj, force);
+  SetToJSON<>(Parameter_interpolationtime, values.interpolationtime, obj, force, &ConvertNSToS);
+  SetToJSON<>(Parameter_onscreen, values.onscreen, obj, force);
+  SetToJSON<>(Parameter_othervalues, othervalues, obj, force);
 
   DEBUG2(("JSON: %s", json_spirit::write(obj, json_spirit::pretty_print).c_str()));
 }
@@ -329,7 +329,7 @@ void AudioObjectParameters::Modifier::ToJSON(json_spirit::mObject& obj) const
 /** Specific modifications
  */
 /*--------------------------------------------------------------------------------*/
-void AudioObjectParameters::Modifier::Modify(AudioObjectParameters& parameters, const AudioObject *object) const
+void AudioObjectParameters::Modifier::Modify(AudioObjectParameters& parameters, const ADMAudioObject *object) const
 {
   UNUSED_PARAMETER(parameters);
   UNUSED_PARAMETER(object);
@@ -341,7 +341,7 @@ void AudioObjectParameters::Modifier::Modify(AudioObjectParameters& parameters, 
 /** Modify this object's parameters using a single modifier
  */
 /*--------------------------------------------------------------------------------*/
-AudioObjectParameters& AudioObjectParameters::Modify(const Modifier& modifier, const AudioObject *object)
+AudioObjectParameters& AudioObjectParameters::Modify(const Modifier& modifier, const ADMAudioObject *object)
 {
   if (modifier.rotation.IsSet())
   {
@@ -374,7 +374,7 @@ AudioObjectParameters& AudioObjectParameters::Modify(const Modifier& modifier, c
 /** Modify this object's parameters using a list of modifiers
  */
 /*--------------------------------------------------------------------------------*/
-AudioObjectParameters& AudioObjectParameters::Modify(const Modifier::LIST& list, const AudioObject *object)
+AudioObjectParameters& AudioObjectParameters::Modify(const Modifier::LIST& list, const ADMAudioObject *object)
 {
   uint_t i;
 

@@ -20,6 +20,8 @@ Makefile.am - makefile for automake
 README - this file
 src/ - source folder containing C/C++ source and header files
 
+src/AudioObject.h                       | Simple representation of an AudioObject
+
 src/AudioObjectCursor.h                 | A cursor that tracks channel parameter changes over time 
 
 src/AudioObjectParameters.cpp           | A set of parameters describing a channel's audio attributes (such as position, size, diffuseness, gain and importance)

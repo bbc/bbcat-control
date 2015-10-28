@@ -1,6 +1,12 @@
 bbcat-control (0.1.2.0) quantal; urgency=low
 
-  * 
+  * Added Windows build support using CMake
+  * Added CMake build support for Mac and Linux
+  * Added simple representation of an audio object: the AudioObject class
+  * Reduced memory usage of AudioObjectParameters class by storing data in a POD structure
+  * Used templates for setting and getting parameters within AudioObjectParameters class
+  * Added version number embedding using versions.cpp/h
+  * Updated README file
 
  -- Richard Day <richard.day@bbc.co.uk>  Mon, 26 Oct 2015 10:30:00 +0000
 

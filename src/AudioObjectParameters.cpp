@@ -329,7 +329,7 @@ void AudioObjectParameters::Modifier::ToJSON(json_spirit::mObject& obj) const
 /** Specific modifications
  */
 /*--------------------------------------------------------------------------------*/
-void AudioObjectParameters::Modifier::Modify(AudioObjectParameters& parameters, const ADMAudioObject *object) const
+void AudioObjectParameters::Modifier::Modify(AudioObjectParameters& parameters, const AudioObject *object) const
 {
   UNUSED_PARAMETER(parameters);
   UNUSED_PARAMETER(object);
@@ -341,7 +341,7 @@ void AudioObjectParameters::Modifier::Modify(AudioObjectParameters& parameters, 
 /** Modify this object's parameters using a single modifier
  */
 /*--------------------------------------------------------------------------------*/
-AudioObjectParameters& AudioObjectParameters::Modify(const Modifier& modifier, const ADMAudioObject *object)
+AudioObjectParameters& AudioObjectParameters::Modify(const Modifier& modifier, const AudioObject *object)
 {
   if (modifier.rotation.IsSet())
   {
@@ -374,7 +374,7 @@ AudioObjectParameters& AudioObjectParameters::Modify(const Modifier& modifier, c
 /** Modify this object's parameters using a list of modifiers
  */
 /*--------------------------------------------------------------------------------*/
-AudioObjectParameters& AudioObjectParameters::Modify(const Modifier::LIST& list, const ADMAudioObject *object)
+AudioObjectParameters& AudioObjectParameters::Modify(const Modifier::LIST& list, const AudioObject *object)
 {
   uint_t i;
 

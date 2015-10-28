@@ -15,7 +15,7 @@ BBC_AUDIOTOOLBOX_START
  * over time as parameters for that channel change
  */
 /*--------------------------------------------------------------------------------*/
-class ADMAudioObject;
+class AudioObject;
 class AudioObjectParameters
 {
 public:
@@ -291,7 +291,7 @@ public:
     /** Specific modifications
      */
     /*--------------------------------------------------------------------------------*/
-    virtual void Modify(AudioObjectParameters& parameters, const ADMAudioObject *object = NULL) const;
+    virtual void Modify(AudioObjectParameters& parameters, const AudioObject *object = NULL) const;
 
 #if ENABLE_JSON
     /*--------------------------------------------------------------------------------*/
@@ -335,13 +335,13 @@ public:
   /** Modify this object's parameters using a single modifier
    */
   /*--------------------------------------------------------------------------------*/
-  AudioObjectParameters& Modify(const Modifier& modifier, const ADMAudioObject *object);
+  AudioObjectParameters& Modify(const Modifier& modifier, const AudioObject *object);
 
   /*--------------------------------------------------------------------------------*/
   /** Modify this object's parameters using a list of modifiers
    */
   /*--------------------------------------------------------------------------------*/
-  AudioObjectParameters& Modify(const Modifier::LIST& list, const ADMAudioObject *object);
+  AudioObjectParameters& Modify(const Modifier::LIST& list, const AudioObject *object);
 
 protected:
   void GetList(std::vector<INamedParameter *>& list);

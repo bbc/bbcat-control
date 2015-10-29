@@ -20,11 +20,36 @@ Makefile.am - makefile for automake
 README - this file
 src/ - source folder containing C/C++ source and header files
 
+src/AudioObject.h                       | Simple representation of an AudioObject
+
 src/AudioObjectCursor.h                 | A cursor that tracks channel parameter changes over time 
 
 src/AudioObjectParameters.cpp           | A set of parameters describing a channel's audio attributes (such as position, size, diffuseness, gain and importance)
 src/AudioObjectParameters.h             |
 
-Building (dynamic libraries)
+--------------------------------------------------------------------------------
+Building on Windows (Visual Studio)
 
+mkdir build
+cd build
+cmake -G "Visual Studio 14 2015 Win64" .. && cmake --build . --target INSTALL --config Release
+(or whatever version of Visual Studio you are using)
+
+Notes on Windows builds
+
+As there is no standardised directories for cmake files, libraries, etc. the build *assumes* that:
+1. Library includes, libs and shared files will be stored in c:\local\bbcat
+2. CMake configuration files will be stored in c:\local\cmake
+--------------------------------------------------------------------------------
+
+--------------------------------------------------------------------------------
+Building on Mac and Linux
+
+There are two build mechanisms supported: autotools and cmake
+
+autotools:
 ./autogen.sh && configure && make && sudo make install
+
+cmake:
+mkdir build ; cd build ; cmake .. && make && sudo make install
+--------------------------------------------------------------------------------

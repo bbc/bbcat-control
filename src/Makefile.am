@@ -1,3 +1,5 @@
+nobase_pkginclude_HEADERS =
+
 pkgincludedir = $(includedir)/bbcat-control-@BBCAT_CONTROL_MAJORMINOR@/bbcat-control
 
 lib_LTLIBRARIES = libbbcat-control-@BBCAT_CONTROL_MAJORMINOR@.la
@@ -21,12 +23,13 @@ libbbcat_control_@BBCAT_CONTROL_MAJORMINOR@_la_CPPFLAGS =	\
 	$(PTHREAD_CFLAGS)
 
 libbbcat_control_@BBCAT_CONTROL_MAJORMINOR@_la_SOURCES =	\
-	AudioObjectParameters.cpp
+	AudioObjectParameters.cpp								\
+	version.cpp
 
 pkginclude_HEADERS =							\
+	AudioObject.h								\
 	AudioObjectCursor.h							\
 	AudioObjectParameters.h						\
-	SelfRegisteringObjects.h
 	version.h
 
 noinst_HEADERS =
@@ -35,7 +38,7 @@ nodist_pkginclude_HEADERS =
 
 distcleanfiles =
 
-CLEANFILES = version.h SelfRegisteringObjects.h
+CLEANFILES = version.h version.cpp SelfRegisteringObjects.h
 
 SelfRegisteringObjects.h: $(libbbcat_control_@BBCAT_CONTROL_MAJORMINOR@_la_SOURCES) Makefile Makefile.am
 	@echo "Factories found:"
@@ -49,5 +52,12 @@ SelfRegisteringObjects.h: $(libbbcat_control_@BBCAT_CONTROL_MAJORMINOR@_la_SOURC
 	@echo "};" >>SelfRegisteringObjects.h
 	@echo "BBC_AUDIOTOOLBOX_END" >>SelfRegisteringObjects.h
 
-version.h: Makefile ../config.h
-	echo "{\"@PACKAGE@\", \"@VERSION@\"}," >version.h
+version.h: Makefile ../config.h ../gitbranch.txt
+	echo "{\"@PACKAGE@\", \"@VERSION@-`cat ../gitbranch.txt`\"}," >version.h
+
+version.cpp: Makefile ../config.h ../gitbranch.txt
+	echo "/* Auto-generated: DO NOT EDIT! */" >version.cpp
+	echo "#include <bbcat-base/LoadedVersions.h>" >>version.cpp
+	echo "BBC_AUDIOTOOLBOX_START" >>version.cpp
+	echo "volatile uint_t __keep_@PACKAGE@_version = bbcat::LoadedVersions::Get().Register(\"@PACKAGE@\", \"@VERSION@-`cat ../gitbranch.txt`\");" >>version.cpp
+	echo "BBC_AUDIOTOOLBOX_END" >>version.cpp

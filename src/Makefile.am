@@ -12,15 +12,13 @@ libbbcat_control_@BBCAT_CONTROL_MAJORMINOR@_la_LDFLAGS =	\
 libbbcat_control_@BBCAT_CONTROL_MAJORMINOR@_la_LIBADD =	\
 	$(BBCAT_BASE_LIBS)									\
 	$(BBCAT_DSP_LIBS)									\
-	$(BBCAT_GLOBAL_CONTROL_LIBS)						\
-	$(PTHREAD_LIBS)
+	$(BBCAT_GLOBAL_CONTROL_LIBS)
 
 libbbcat_control_@BBCAT_CONTROL_MAJORMINOR@_la_CPPFLAGS =	\
 	$(BBCAT_BASE_CFLAGS)									\
 	$(BBCAT_DSP_CFLAGS)										\
 	$(BBCAT_CONTROL_CFLAGS)									\
-	$(BBCAT_GLOBAL_CONTROL_CFLAGS)							\
-	$(PTHREAD_CFLAGS)
+	$(BBCAT_GLOBAL_CONTROL_CFLAGS)
 
 libbbcat_control_@BBCAT_CONTROL_MAJORMINOR@_la_SOURCES =	\
 	AudioObjectParameters.cpp								\

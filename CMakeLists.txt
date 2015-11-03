@@ -17,9 +17,18 @@ include(CMakeLists-bbcat.txt)
 find_package(bbcat-dsp REQUIRED)
 include_directories(${BBCAT_DSP_INCLUDE_DIRS})
 
+# set include directories for storing in .cmake file
 set(GLOBAL_INCLUDE_DIRS
 	${BBCAT_DSP_INCLUDE_DIRS}
 	${INSTALL_INCLUDE_DIR})
+
+# set library directories for storing in .cmake file
+set(GLOBAL_LIB_DIRS
+	${BBCAT_DSP_LIB_DIRS}
+	${INSTALL_LIB_DIR})
+
+# set library directories for linking
+link_directories(${GLOBAL_LIB_DIRS})
 
 set(GLOBAL_FLAGS
 	${BBCAT_DSP_FLAGS})

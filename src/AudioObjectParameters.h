@@ -387,7 +387,6 @@ protected:
   /*--------------------------------------------------------------------------------*/
   static uint8_t  LimitImportance(const int& val)   {return LIMIT(val, 0, 10);}
   static uint8_t  LimitDialogue(const int& val)     {return LIMIT(val, 0, 2);}
-  static uint_t   Limit0(const int& val)            {return MAX(val, 0);}              // at least 0
   static double   Limit0(const double& val)         {return MAX(val, 0.0);}            // at least 0
   static double   Limit0to1(const double& val)      {return LIMIT(val, 0.0, 1.0);}     // between 0 and 1
   static uint64_t ConvertSToNS(const double& val)   {return (uint64_t)MAX(val * 1.0e9, 0.0);}

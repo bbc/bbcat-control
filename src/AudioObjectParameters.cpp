@@ -2,7 +2,7 @@
 #include <stdlib.h>
 #include <string.h>
 
-#define DEBUG_LEVEL 1
+#define BBCDEBUG_LEVEL 1
 #include "AudioObjectParameters.h"
 
 BBC_AUDIOTOOLBOX_START
@@ -251,7 +251,7 @@ void AudioObjectParameters::ToJSON(json_spirit::mObject& obj, bool force) const
   SetToJSON<>(Parameter_onscreen, values.onscreen, obj, force);
   SetToJSON<>(Parameter_othervalues, othervalues, obj, force);
 
-  DEBUG2(("JSON: %s", json_spirit::write(obj, json_spirit::pretty_print).c_str()));
+  BBCDEBUG2(("JSON: %s", json_spirit::write(obj, json_spirit::pretty_print).c_str()));
 }
 #endif
 

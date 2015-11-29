@@ -82,6 +82,18 @@ public:
   void   ResetChannel()                {ResetParameter<>(Parameter_channel, values.channel);}
 
   /*--------------------------------------------------------------------------------*/
+  /** Get/Set block duration (ns by default)
+   */
+  /*--------------------------------------------------------------------------------*/
+  uint64_t GetDuration()              const {return values.duration;}
+  double   GetDurationS()             const {return ConvertNSToS(values.duration);}
+  bool     GetDuration(uint64_t& val) const {return GetParameter<>(Parameter_duration, values.duration, val);}
+  bool     GetDurationS(double&  val) const {return GetParameter<>(Parameter_duration, values.duration, val, &ConvertNSToS);}
+  void     SetDuration(uint64_t  val)       {SetParameter<>(Parameter_duration, values.duration, val);}
+  void     SetDurationS(double   val)       {SetParameter<>(Parameter_duration, values.duration, val, &ConvertSToNS);}
+  void     ResetDuration()                  {ResetParameter<>(Parameter_duration, values.duration);}
+
+  /*--------------------------------------------------------------------------------*/
   /** Get/Set physical position of this object
    *
    * @note position information is required for every channel
@@ -132,10 +144,10 @@ public:
   /** Get/Set divergence balance
    */
   /*--------------------------------------------------------------------------------*/
-  double GetDivergenceBalance()            const {return values.divergencebalance;}
-  bool   GetDivergenceBalance(double& val) const {return GetParameter<>(Parameter_divergencebalance, values.divergencebalance, val);}
-  void   SetDivergenceBalance(double  val)       {SetParameter<>(Parameter_divergencebalance, values.divergencebalance, val, &Limit0to1);}
-  void   ResetDivergenceBalance()                {ResetParameter<>(Parameter_divergencebalance, values.divergencebalance);}
+  float  GetDivergenceBalance()           const {return values.divergencebalance;}
+  bool   GetDivergenceBalance(float& val) const {return GetParameter<>(Parameter_divergencebalance, values.divergencebalance, val);}
+  void   SetDivergenceBalance(float  val)       {SetParameter<>(Parameter_divergencebalance, values.divergencebalance, val, &Limit0to1f);}
+  void   ResetDivergenceBalance()               {ResetParameter<>(Parameter_divergencebalance, values.divergencebalance);}
 
   /*--------------------------------------------------------------------------------*/
   /** Get/Set divergence azimuth
@@ -230,6 +242,12 @@ public:
   void     SetInterpolationTimeS(double   val)       {SetParameter<>(Parameter_interpolationtime, values.interpolationtime, val, &ConvertSToNS);}
   void     ResetInterpolationTime()                  {ResetParameter<>(Parameter_interpolationtime, values.interpolationtime);}
 
+  /*--------------------------------------------------------------------------------*/
+  /** Return actual interpolation time in ns according to interpolate, interpolationtime and duration (according to BS 2076)
+   */
+  /*--------------------------------------------------------------------------------*/
+  uint64_t GetActualInterpolationTime() const {return GetInterpolate() ? GetInterpolationTime() : GetDuration();}
+  
   /*--------------------------------------------------------------------------------*/
   /** Get/Set onscreen
    */
@@ -594,7 +612,8 @@ protected:
   /*--------------------------------------------------------------------------------*/
   typedef enum {
     Parameter_channel = 0,
-
+    Parameter_duration,
+    
     Parameter_position,
 
     Parameter_gain,
@@ -977,15 +996,16 @@ protected:
    */
   /*--------------------------------------------------------------------------------*/
   typedef struct {
+    uint64_t duration;
     uint64_t interpolationtime;
     double   gain;
-    double   divergencebalance;
     float    width;
     float    height;
     float    depth;
     float    diffuseness;
     float    delay;
     float    divergenceazimuth;
+    float    divergencebalance;
 	float    channellockmaxdistance;
     uint_t   channel;
     uint8_t  importance;

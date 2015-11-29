@@ -2,7 +2,7 @@
 #include <stdlib.h>
 #include <string.h>
 
-#define BBCDEBUG_LEVEL 1
+#define DEBUG_LEVEL 1
 #include "AudioObjectParameters.h"
 
 BBC_AUDIOTOOLBOX_START
@@ -12,6 +12,8 @@ const PARAMETERDESC AudioObjectParameters::parameterdescs[Parameter_count] =
 {
   {"channel",                "Channel number (0-based)"},
 
+  {"duration",               "Block duration (ns)"},
+  
   {"position",               "Channel position"},
 
   {"gain",                   "Channel gain (linear)"},
@@ -33,7 +35,7 @@ const PARAMETERDESC AudioObjectParameters::parameterdescs[Parameter_count] =
   {"channellockmaxdistance", "Channel is locked to channel (speaker) max distance"},
   {"interact",               "Channel can be interacted with"},
   {"interpolate",            "Interpolate channel metadata changes"},
-  {"interpolationtime",      "Time for interpolation of channel metadata changes"},
+  {"interpolationtime",      "Time for interpolation of channel metadata changes (ns)"},
   {"onscreen",               "Channel is on screen"},
 
   {"othervalues",            "Other channel values"},
@@ -119,17 +121,19 @@ AudioObjectParameters& AudioObjectParameters::FromJSON(const json_spirit::mObjec
   Position     pval;
   ParameterSet sval;
   double       dval;
+  sint64_t     i64val;
   float        fval;
   int          ival;
   bool         bval;
   
   SetFromJSON<>(Parameter_channel, values.channel, ival, obj, reset, 0U, &Limit0u);
+  SetFromJSON<>(Parameter_duration, values.duration, i64val, obj, reset, (uint64_t)0);
   SetFromJSON<>(Parameter_position, position, pval, obj, reset);
   SetFromJSON<>(Parameter_gain, values.gain, dval, obj, reset, 1.0);
   SetFromJSON<>(Parameter_width, values.width, fval, obj, reset, 0.f, &Limit0f);
   SetFromJSON<>(Parameter_depth, values.depth, fval, obj, reset, 0.f, &Limit0f);
   SetFromJSON<>(Parameter_height, values.height, fval, obj, reset, 0.f, &Limit0f);
-  SetFromJSON<>(Parameter_divergencebalance, values.divergencebalance, dval, obj, reset, 0.0, &Limit0to1);
+  SetFromJSON<>(Parameter_divergencebalance, values.divergencebalance, fval, obj, reset, 0.f, &Limit0to1f);
   SetFromJSON<>(Parameter_divergenceazimuth, values.divergenceazimuth, fval, obj, reset, 0.f, &Limit0f);
   SetFromJSON<>(Parameter_diffuseness, values.diffuseness, fval, obj, reset, 0.f, &Limit0to1f);
   SetFromJSON<>(Parameter_delay, values.delay, fval, obj, reset, 0.f, &Limit0f);
@@ -139,7 +143,7 @@ AudioObjectParameters& AudioObjectParameters::FromJSON(const json_spirit::mObjec
   SetFromJSON<>(Parameter_channellockmaxdistance, values.channellockmaxdistance, fval, obj, reset, 0.f, &LimitMaxDistance);
   SetFromJSON<>(Parameter_interact, values.interact, bval, obj, reset);
   SetFromJSON<>(Parameter_interpolate, values.interpolate, bval, obj, reset);
-  SetFromJSON<>(Parameter_interpolationtime, values.interpolationtime, dval, obj, reset, (uint64_t)0, &ConvertSToNS);
+  SetFromJSON<>(Parameter_interpolationtime, values.interpolationtime, i64val, obj, reset, (uint64_t)0);
   SetFromJSON<>(Parameter_onscreen, values.onscreen, bval, obj, reset);
   SetFromJSON<>(Parameter_othervalues, othervalues, sval, obj, reset);
 
@@ -178,7 +182,7 @@ AudioObjectParameters& AudioObjectParameters::FromJSON(const json_spirit::mObjec
           {
             AddExcludedZone(name, minx, miny, minz, maxx, maxy, maxz);
           }
-          else BBCERROR("Unable to extract excluded zones from JSON '%s'", json_spirit::write(it->second).c_str());
+          else ERROR("Unable to extract excluded zones from JSON '%s'", json_spirit::write(it->second).c_str());
         }
       }
     }
@@ -209,6 +213,7 @@ bool AudioObjectParameters::operator == (const AudioObjectParameters& obj) const
 AudioObjectParameters& AudioObjectParameters::Merge(const AudioObjectParameters& obj)
 {
   CopyIfSet<>(obj, Parameter_channel, values.channel, obj.values.channel);
+  CopyIfSet<>(obj, Parameter_duration, values.duration, obj.values.duration);
   CopyIfSet<>(obj, Parameter_position, position, obj.position);
   CopyIfSet<>(obj, Parameter_gain, values.gain, obj.values.gain);
   CopyIfSet<>(obj, Parameter_width, values.width, obj.values.width);
@@ -325,6 +330,7 @@ AudioObjectParameters& AudioObjectParameters::operator *= (const PositionTransfo
 void AudioObjectParameters::GetAll(ParameterSet& set, bool force) const
 {
   GetParameterFromParameters<>(Parameter_channel, values.channel, set, force);
+  GetParameterFromParameters<>(Parameter_duration, values.duration, set, force);
   if (force || IsParameterSet(Parameter_position)) position.SetParameters(set, parameterdescs[Parameter_position].name);
   GetParameterFromParameters<>(Parameter_gain, values.gain, set, force);
   GetParameterFromParameters<>(Parameter_width, values.width, set, force);
@@ -402,10 +408,11 @@ bool AudioObjectParameters::SetValue(const std::string& name, const std::string&
   // only one of the sets will work and a compiler that does early abort optimisation
   // will improve the speed of this function but not break it
   return (SetFromValue<>(Parameter_gain, values.gain, name, value) ||
+          SetFromValue<>(Parameter_duration, values.duration, name, value) ||
           SetFromValue<>(Parameter_width, values.width, name, value, &Limit0f) ||
           SetFromValue<>(Parameter_depth, values.depth, name, value, &Limit0f) ||
           SetFromValue<>(Parameter_height, values.height, name, value, &Limit0f) ||
-          SetFromValue<>(Parameter_divergencebalance, values.divergencebalance, name, value, &Limit0to1) ||
+          SetFromValue<>(Parameter_divergencebalance, values.divergencebalance, name, value, &Limit0to1f) ||
           SetFromValue<>(Parameter_divergenceazimuth, values.divergenceazimuth, name, value, &Limit0f) ||
           SetFromValue<>(Parameter_diffuseness, values.diffuseness, name, value, &Limit0to1f) ||
           SetFromValue<>(Parameter_delay, values.delay, name, value, &Limit0f) ||
@@ -428,6 +435,7 @@ bool AudioObjectParameters::GetValue(const std::string& name, std::string& value
   // only one of the gets will work and a compiler that does early abort optimisation
   // will improve the speed of this function but not break it
   return (GetToValue<>(Parameter_channel, values.channel, name, value) ||
+          GetToValue<>(Parameter_duration, values.duration, name, value) ||
           GetToValue<>(Parameter_gain, values.gain, name, value) ||
           GetToValue<>(Parameter_width, values.width, name, value) ||
           GetToValue<>(Parameter_depth, values.depth, name, value) ||
@@ -455,6 +463,7 @@ bool AudioObjectParameters::ResetValue(const std::string& name)
   // only one of the gets will work and a compiler that does early abort optimisation
   // will improve the speed of this function but not break it
   return (ResetValue<>(Parameter_channel, values.channel, name) ||
+          ResetValue<>(Parameter_duration, values.duration, name) ||
           ResetValue<>(Parameter_position, position, name) ||
           ResetValue<>(Parameter_gain, values.gain, name, 1.0) ||
           ResetValue<>(Parameter_width, values.width, name) ||
@@ -495,6 +504,7 @@ std::string AudioObjectParameters::ToString(bool pretty) const
 void AudioObjectParameters::ToJSON(json_spirit::mObject& obj, bool force) const
 {
   SetToJSON<>(Parameter_channel, (int)values.channel, obj, force);
+  SetToJSON<>(Parameter_duration, (sint64_t)values.duration, obj, force);
   SetToJSON<>(Parameter_position, position, obj, force);
   SetToJSON<>(Parameter_gain, values.gain, obj, force);
   SetToJSON<>(Parameter_width, values.width, obj, force);
@@ -510,7 +520,7 @@ void AudioObjectParameters::ToJSON(json_spirit::mObject& obj, bool force) const
   SetToJSON<>(Parameter_channellockmaxdistance, values.channellockmaxdistance, obj, force);
   SetToJSON<>(Parameter_interact, values.interact, obj, force);
   SetToJSON<>(Parameter_interpolate, values.interpolate, obj, force);
-  SetToJSON<>(Parameter_interpolationtime, values.interpolationtime, obj, force, &ConvertNSToS);
+  SetToJSON<>(Parameter_interpolationtime, (sint64_t)values.interpolationtime, obj, force);
   SetToJSON<>(Parameter_onscreen, values.onscreen, obj, force);
   SetToJSON<>(Parameter_othervalues, othervalues, obj, force);
   
@@ -541,7 +551,7 @@ void AudioObjectParameters::ToJSON(json_spirit::mObject& obj, bool force) const
     obj["excludedzones"] = zones;
   }
   
-  BBCDEBUG2(("JSON: %s", json_spirit::write(obj, json_spirit::pretty_print).c_str()));
+  DEBUG2(("JSON: %s", json_spirit::write(obj, json_spirit::pretty_print).c_str()));
 }
 #endif
 

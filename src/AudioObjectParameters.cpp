@@ -307,15 +307,15 @@ AudioObjectParameters& AudioObjectParameters::operator *= (const PositionTransfo
 
   if (centre.polar)
   {
-    SetWidth(corner.pos.az);
-    SetHeight(corner.pos.el);
-    SetDepth(corner.pos.d);
+    SetWidth(static_cast<float>(corner.pos.az));
+    SetHeight(static_cast<float>(corner.pos.el));
+    SetDepth(static_cast<float>(corner.pos.d));
   }
   else
   {
-    SetWidth(corner.pos.x);
-    SetHeight(corner.pos.y);
-    SetDepth(corner.pos.z);
+    SetWidth(static_cast<float>(corner.pos.x));
+    SetHeight(static_cast<float>(corner.pos.y));
+    SetDepth(static_cast<float>(corner.pos.z));
   }
   
   return *this;
@@ -648,9 +648,9 @@ AudioObjectParameters& AudioObjectParameters::Modify(const Modifier& modifier, c
     SetPosition(GetPosition() * modifier.rotation.Get());
     Position size(GetWidth(), GetHeight(), GetDepth());
     size *= modifier.rotation.Get();
-    SetWidth(size.pos.x);
-    SetHeight(size.pos.y);
-    SetDepth(size.pos.z);
+    SetWidth(static_cast<float>(size.pos.x));
+    SetHeight(static_cast<float>(size.pos.y));
+    SetDepth(static_cast<float>(size.pos.z));
   }
   if (modifier.position.IsSet()) SetPosition(GetPosition() + modifier.position.Get());
   if (modifier.scale.IsSet())
@@ -658,9 +658,9 @@ AudioObjectParameters& AudioObjectParameters::Modify(const Modifier& modifier, c
     SetPosition(GetPosition() * modifier.scale.Get());
     Position size(GetWidth(), GetHeight(), GetDepth());
     size *= modifier.scale.Get();
-    SetWidth(size.pos.x);
-    SetHeight(size.pos.y);
-    SetDepth(size.pos.z);
+    SetWidth(static_cast<float>(size.pos.x));
+    SetHeight(static_cast<float>(size.pos.y));
+    SetDepth(static_cast<float>(size.pos.z));
   }
   if (modifier.gain.IsSet()) SetGain(GetGain() * modifier.gain.Get());
 

@@ -653,10 +653,10 @@ protected:
   static uint_t   Limit0u(const int& val)             {return MAX(val, 0);}              // at least 0
   static uint64_t Limit0u64(const sint64_t& val)      {return MAX(val, 0);}              // at least 0
   static double   Limit0(const double& val)           {return MAX(val, 0.0);}            // at least 0
-  static float    Limit0f(const float& val)           {return MAX(val, 0.0);}            // at least 0
+  static float    Limit0f(const float& val)           {return MAX(val, 0.f);}            // at least 0
   static double   Limit0to1(const double& val)        {return LIMIT(val, 0.0, 1.0);}     // between 0 and 1
-  static float    Limit0to1f(const float& val)        {return LIMIT(val, 0.0, 1.0);}     // between 0 and 1
-  static float    LimitMaxDistance(const float& val)  {return LIMIT(val, 0.0, 2.0);}     // between 0 and 2
+  static float    Limit0to1f(const float& val)        {return LIMIT(val, 0.f, 1.f);}     // between 0 and 1
+  static float    LimitMaxDistance(const float& val)  {return LIMIT(val, 0.f, 2.f);}     // between 0 and 2
   static uint64_t ConvertSToNS(const double& val)     {return (uint64_t)MAX(val * 1.0e9, 0.0);}
   static double   ConvertNSToS(const uint64_t& val)   {return (double)val * 1.0e-9;}
   

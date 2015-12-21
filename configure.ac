@@ -1,5 +1,5 @@
 AC_PREREQ([2.68])
-AC_INIT([BBCAT_CONTROL],[0.1.2.0])
+AC_INIT([BBCAT_CONTROL],[0.1.2.1])
 
 AS_NANO(BBCAT_CONTROL_CVS=no,BBCAT_CONTROL_CVS=yes)
 
@@ -53,14 +53,14 @@ BBCAT_GLOBAL_CONTROL_CFLAGS=""
 BBCAT_GLOBAL_CONTROL_LIBS=""
 
 dnl bbcat-base is required
-BBCAT_BASE_VER="0.1.2.0"
+BBCAT_BASE_VER="0.1.2.1"
 PKG_CHECK_MODULES(BBCAT_BASE, bbcat-base-0.1 >= $BBCAT_BASE_VER, HAVE_BBCAT_BASE=yes, HAVE_BBCAT_BASE=no)
 if test "x${HAVE_BBCAT_BASE}" != xyes ; then
   AC_MSG_ERROR([bbcat-base-0.1 >= $BBCAT_BASE_VER is required])
 fi
 
 dnl bbcat-dsp is required
-BBCAT_DSP_VER="0.1.2.0"
+BBCAT_DSP_VER="0.1.2.1"
 PKG_CHECK_MODULES(BBCAT_DSP, bbcat-dsp-0.1 >= $BBCAT_DSP_VER, HAVE_BBCAT_DSP=yes, HAVE_BBCAT_DSP=no)
 if test "x${HAVE_BBCAT_DSP}" != xyes ; then
   AC_MSG_ERROR([bbcat-dsp-0.1 >= $BBCAT_DSP_VER is required])

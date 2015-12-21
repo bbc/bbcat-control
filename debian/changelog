@@ -1,3 +1,16 @@
+bbcat-control (0.1.2.1) quantal; urgency=low
+
+  * Changed 'importance' parameter in AudioObjectParameters into 'channelimportance' and 'objectimportance' to differentiate the different importance values within the ADM
+  * Added 'disableducking' and 'screenedgelock' parameters to AudioObjectParameters
+  * Improved excluded zone handling within AudioObjectParameters (fixing comparison and merge operations and allow simple x1/x2 type specification instead of minx/maxx)
+  * Added interpolation/crossfade support to AudioObjectParameters
+  * Added IsxxxSet() functions to AudioObjectParameters
+  * Changed mapping from ADM <-> AudioObjectParameters for jumpPosition, AudioObjectParameters::GetActualInterpolationTime() still returns correct interpolation time
+  * Changed handling of 'othervalues' within AudioObjectParameters slightly - other parameters are now explicitly specified
+  * Other minor improvements and fixes
+
+  -- Richard Day <richard.day@bbc.co.uk>  Mon, 21 Dec 2015 14:00:00 +0000
+
 bbcat-control (0.1.2.0) quantal; urgency=low
 
   * Added Windows build support using CMake

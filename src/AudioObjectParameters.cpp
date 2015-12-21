@@ -2,7 +2,7 @@
 #include <stdlib.h>
 #include <string.h>
 
-#define DEBUG_LEVEL 1
+#define BBCDEBUG_LEVEL 1
 #include "AudioObjectParameters.h"
 
 BBC_AUDIOTOOLBOX_START
@@ -28,7 +28,8 @@ const PARAMETERDESC AudioObjectParameters::parameterdescs[Parameter_count] =
   {"diffuseness",            "Channel diffuseness (0-1)"},
   {"delay",                  "Channel delay (seconds)"},
 
-  {"importance",             "Channel importance (0-10)"},
+  {"objectimportance",       "Object importance (0-10)"},
+  {"channelimportance",      "Channel importance (0-10)"},
   {"dialogue",               "Whether channel is dialogue (0, 1 or 2)"},
 
   {"channellock",            "Channel is locked to channel (speaker)"},
@@ -37,8 +38,9 @@ const PARAMETERDESC AudioObjectParameters::parameterdescs[Parameter_count] =
   {"interpolate",            "Interpolate channel metadata changes"},
   {"interpolationtime",      "Time for interpolation of channel metadata changes (ns)"},
   {"onscreen",               "Channel is on screen"},
+  {"disableducking",         "Automatic ducking on channel is disabled"},
 
-  {"othervalues",            "Other channel values"},
+  {"othervalues",            "Other, arbitrary, channel values"},
 };
 
 AudioObjectParameters::AudioObjectParameters() : setbitmap(0),
@@ -78,11 +80,16 @@ void AudioObjectParameters::InitialiseToDefaults()
   // reset all values to zero
   memset(&values, 0, sizeof(values));
 
+  // reset set bitmap
+  setbitmap = 0;
+  
   // explicitly reset those parameters whose reset values are not zero
   ResetPosition();
   ResetGain();
+  ResetObjectImportance();
+  ResetChannelImportance();
   ResetOtherValues();
-
+  
   // delete entire chain of excluded zones
   ResetExcludedZones();
 }
@@ -96,10 +103,10 @@ AudioObjectParameters& AudioObjectParameters::operator = (const AudioObjectParam
   // do not copy oneself
   if (&obj != this)
   {
-    position    = obj.position;
-    values      = obj.values;
-    othervalues = obj.othervalues;
-    setbitmap   = obj.setbitmap;
+    position       = obj.position;
+    values         = obj.values;
+    othervalues    = obj.othervalues;
+    setbitmap      = obj.setbitmap;
 
     // delete entire chain of excluded zones
     ResetExcludedZones();
@@ -120,9 +127,11 @@ AudioObjectParameters& AudioObjectParameters::FromJSON(const json_spirit::mObjec
 {
   Position     pval;
   ParameterSet sval;
+  std::string  str;
   double       dval;
   sint64_t     i64val;
   float        fval;
+  uint_t       uval;
   int          ival;
   bool         bval;
   
@@ -137,14 +146,16 @@ AudioObjectParameters& AudioObjectParameters::FromJSON(const json_spirit::mObjec
   SetFromJSON<>(Parameter_divergenceazimuth, values.divergenceazimuth, fval, obj, reset, 0.f, &Limit0f);
   SetFromJSON<>(Parameter_diffuseness, values.diffuseness, fval, obj, reset, 0.f, &Limit0to1f);
   SetFromJSON<>(Parameter_delay, values.delay, fval, obj, reset, 0.f, &Limit0f);
-  SetFromJSON<>(Parameter_importance, values.importance, ival, obj, reset, (uint8_t)0, &LimitImportance);
-  SetFromJSON<>(Parameter_dialogue, values.dialogue, ival, obj, reset, (uint8_t)0, &LimitDialogue);
+  SetFromJSON<>(Parameter_objectimportance, values.objectimportance, uval, obj, reset, (uint8_t)GetObjectImportanceDefault(), &LimitImportance);
+  SetFromJSON<>(Parameter_channelimportance, values.channelimportance, uval, obj, reset, (uint8_t)GetChannelImportanceDefault(), &LimitImportance);
+  SetFromJSON<>(Parameter_dialogue, values.dialogue, uval, obj, reset, (uint8_t)GetDialogueDefault(), &LimitDialogue);
   SetFromJSON<>(Parameter_channellock, values.channellock, bval, obj, reset);
   SetFromJSON<>(Parameter_channellockmaxdistance, values.channellockmaxdistance, fval, obj, reset, 0.f, &LimitMaxDistance);
-  SetFromJSON<>(Parameter_interact, values.interact, bval, obj, reset);
+  SetFromJSON<>(Parameter_interact, values.interact, bval, obj, reset, (uint8_t)GetInteractDefault());
   SetFromJSON<>(Parameter_interpolate, values.interpolate, bval, obj, reset);
   SetFromJSON<>(Parameter_interpolationtime, values.interpolationtime, i64val, obj, reset, (uint64_t)0);
   SetFromJSON<>(Parameter_onscreen, values.onscreen, bval, obj, reset);
+  SetFromJSON<>(Parameter_disableducking, values.disableducking, bval, obj, reset, (uint8_t)GetDisableDuckingDefault());
   SetFromJSON<>(Parameter_othervalues, othervalues, sval, obj, reset);
 
   // delete existing list of excluded zones
@@ -182,7 +193,7 @@ AudioObjectParameters& AudioObjectParameters::FromJSON(const json_spirit::mObjec
           {
             AddExcludedZone(name, minx, miny, minz, maxx, maxy, maxz);
           }
-          else ERROR("Unable to extract excluded zones from JSON '%s'", json_spirit::write(it->second).c_str());
+          else BBCERROR("Unable to extract excluded zones from JSON '%s'", json_spirit::write(it->second).c_str());
         }
       }
     }
@@ -198,10 +209,35 @@ AudioObjectParameters& AudioObjectParameters::FromJSON(const json_spirit::mObjec
 /*--------------------------------------------------------------------------------*/
 bool AudioObjectParameters::operator == (const AudioObjectParameters& obj) const
 {
-  return ((position == obj.position) &&
-          (memcmp(&values, &obj.values, sizeof(obj.values)) == 0) &&
-          Compare(excludedZones, obj.excludedZones) &&
-          (othervalues == obj.othervalues));
+  bool same = ((position == obj.position) &&
+               (memcmp(&values, &obj.values, sizeof(obj.values)) == 0) &&
+               Compare(excludedZones, obj.excludedZones) &&
+               (othervalues == obj.othervalues));
+#if BBCDEBUG_LEVEL>=4
+  if (!same)
+  {
+    BBCDEBUG("Compare: %u/%u/%u/%u/%08x/%08x", (uint_t)(position == obj.position), (uint_t)(memcmp(&values, &obj.values, sizeof(obj.values)) == 0), (uint_t)Compare(excludedZones, obj.excludedZones), (uint_t)(othervalues == obj.othervalues), setbitmap, obj.setbitmap);
+
+    std::string line;
+    const uint8_t *p1 = (const uint8_t *)&values, *p2 = (const uint8_t *)&obj.values;
+    uint_t i;
+    for (i = 0; i < sizeof(values); i++)
+    {
+      if (line.empty())
+      {
+        Printf(line, "%04x:", i);
+      }
+      Printf(line, " %02x/%02x", (uint_t)p1[i], (uint_t)p2[i]);
+      if ((i & 7) == 7)
+      {
+        BBCDEBUG("%s", line.c_str());
+        line = "";
+      }
+    }
+    if (!line.empty()) BBCDEBUG("%s", line.c_str());
+  }
+#endif
+  return same;
 }
 
 /*--------------------------------------------------------------------------------*/
@@ -212,8 +248,6 @@ bool AudioObjectParameters::operator == (const AudioObjectParameters& obj) const
 /*--------------------------------------------------------------------------------*/
 AudioObjectParameters& AudioObjectParameters::Merge(const AudioObjectParameters& obj)
 {
-  CopyIfSet<>(obj, Parameter_channel, values.channel, obj.values.channel);
-  CopyIfSet<>(obj, Parameter_duration, values.duration, obj.values.duration);
   CopyIfSet<>(obj, Parameter_position, position, obj.position);
   CopyIfSet<>(obj, Parameter_gain, values.gain, obj.values.gain);
   CopyIfSet<>(obj, Parameter_width, values.width, obj.values.width);
@@ -223,7 +257,8 @@ AudioObjectParameters& AudioObjectParameters::Merge(const AudioObjectParameters&
   CopyIfSet<>(obj, Parameter_divergenceazimuth, values.divergenceazimuth, obj.values.divergenceazimuth);
   CopyIfSet<>(obj, Parameter_diffuseness, values.diffuseness, obj.values.diffuseness);
   CopyIfSet<>(obj, Parameter_delay, values.delay, obj.values.delay);
-  CopyIfSet<>(obj, Parameter_importance, values.importance, obj.values.importance);
+  CopyIfSet<>(obj, Parameter_objectimportance, values.objectimportance, obj.values.objectimportance);
+  CopyIfSet<>(obj, Parameter_channelimportance, values.channelimportance, obj.values.channelimportance);
   CopyIfSet<>(obj, Parameter_dialogue, values.dialogue, obj.values.dialogue);
   CopyIfSet<>(obj, Parameter_channellock, values.channellock, obj.values.channellock);
   CopyIfSet<>(obj, Parameter_channellockmaxdistance, values.channellockmaxdistance, obj.values.channellockmaxdistance);
@@ -231,23 +266,34 @@ AudioObjectParameters& AudioObjectParameters::Merge(const AudioObjectParameters&
   CopyIfSet<>(obj, Parameter_interpolate, values.interpolate, obj.values.interpolate);
   CopyIfSet<>(obj, Parameter_interpolationtime, values.interpolationtime, obj.values.interpolationtime);
   CopyIfSet<>(obj, Parameter_onscreen, values.onscreen, obj.values.onscreen);
+  CopyIfSet<>(obj, Parameter_disableducking, values.disableducking, obj.values.disableducking);
   CopyIfSet<>(obj, Parameter_othervalues, othervalues, obj.othervalues);
+  if (obj.excludedZones)
+  {
+    // delete current zone(s)
+    ResetExcludedZones();
+    // copy other object's zone(s)
+    excludedZones = new ExcludedZone(*obj.excludedZones);
+  }
   return *this;
 }
 
 /*--------------------------------------------------------------------------------*/
 /** Add a single excluded zone to list
+ *
+ * @note x1/x2 can be in any order since the min/max values are taken
+ * @note and similarly for y and z 
  */
 /*--------------------------------------------------------------------------------*/
-void AudioObjectParameters::AddExcludedZone(const std::string& name, float minx, float miny, float minz, float maxx, float maxy, float maxz)
+void AudioObjectParameters::AddExcludedZone(const std::string& name, float x1, float y1, float z1, float x2, float y2, float z2)
 {
   ExcludedZone *zone;
 
   if ((zone = new ExcludedZone) != NULL)
   {
     zone->SetName(name);
-    zone->SetMinCorner(minx, miny, minz);
-    zone->SetMaxCorner(maxx, maxy, maxz);
+    zone->SetMinCorner(MIN(x1, x2), MIN(y1, y2), MIN(z1, z2));
+    zone->SetMaxCorner(MAX(x1, x2), MAX(y1, y2), MAX(z1, z2));
 
     // if chain already exists, append this one to the end
     if (excludedZones) excludedZones->Add(zone);
@@ -340,7 +386,8 @@ void AudioObjectParameters::GetAll(ParameterSet& set, bool force) const
   GetParameterFromParameters<>(Parameter_divergenceazimuth, values.divergenceazimuth, set, force);
   GetParameterFromParameters<>(Parameter_diffuseness, values.diffuseness, set, force);
   GetParameterFromParameters<>(Parameter_delay, values.delay, set, force);
-  GetParameterFromParameters<>(Parameter_importance, values.importance, set, force);
+  GetParameterFromParameters<>(Parameter_objectimportance, values.objectimportance, set, force);
+  GetParameterFromParameters<>(Parameter_channelimportance, values.channelimportance, set, force);
   GetParameterFromParameters<>(Parameter_dialogue, values.dialogue, set, force);
   GetParameterFromParameters<>(Parameter_channellock, values.channellock, set, force);
   GetParameterFromParameters<>(Parameter_channellockmaxdistance, values.channellockmaxdistance, set, force);
@@ -348,6 +395,7 @@ void AudioObjectParameters::GetAll(ParameterSet& set, bool force) const
   GetParameterFromParameters<>(Parameter_interpolate, values.interpolate, set, force);
   GetParameterFromParameters<>(Parameter_interpolationtime, values.interpolationtime, set, force);
   GetParameterFromParameters<>(Parameter_onscreen, values.onscreen, set, force);
+  GetParameterFromParameters<>(Parameter_disableducking, values.disableducking, set, force);
   GetParameterFromParameters<>(Parameter_othervalues, othervalues, set, force);
 
   const ExcludedZone *zone;
@@ -416,14 +464,16 @@ bool AudioObjectParameters::SetValue(const std::string& name, const std::string&
           SetFromValue<>(Parameter_divergenceazimuth, values.divergenceazimuth, name, value, &Limit0f) ||
           SetFromValue<>(Parameter_diffuseness, values.diffuseness, name, value, &Limit0to1f) ||
           SetFromValue<>(Parameter_delay, values.delay, name, value, &Limit0f) ||
-          SetFromValueConv<uint8_t,int>(Parameter_importance, values.importance, name, value, &LimitImportance) ||
-          SetFromValueConv<uint8_t,int>(Parameter_dialogue, values.dialogue, name, value, &LimitDialogue) ||
+          SetFromValueConv<uint8_t,uint_t>(Parameter_objectimportance, values.objectimportance, name, value, &LimitImportance) ||
+          SetFromValueConv<uint8_t,uint_t>(Parameter_channelimportance, values.channelimportance, name, value, &LimitImportance) ||
+          SetFromValueConv<uint8_t,uint_t>(Parameter_dialogue, values.dialogue, name, value, &LimitDialogue) ||
           SetFromValueConv<uint8_t,int>(Parameter_channellock, values.channellock, name, value, &LimitBool) ||
           SetFromValue<>(Parameter_channellockmaxdistance, values.channellockmaxdistance, name, value, &LimitMaxDistance) ||
           SetFromValueConv<uint8_t,int>(Parameter_interact, values.interact, name, value, &LimitBool) ||
           SetFromValueConv<uint8_t,int>(Parameter_interpolate, values.interpolate, name, value, &LimitBool) ||
           SetFromValueConv<uint64_t,sint64_t>(Parameter_interpolationtime, values.interpolationtime, name, value, &Limit0u64) ||
-          SetFromValueConv<uint8_t,int>(Parameter_onscreen, values.onscreen, name, value, &LimitBool));
+          SetFromValueConv<uint8_t,int>(Parameter_onscreen, values.onscreen, name, value, &LimitBool) ||
+          SetFromValueConv<uint8_t,int>(Parameter_disableducking, values.disableducking, name, value, &LimitBool));
 }
 
 /*--------------------------------------------------------------------------------*/
@@ -444,14 +494,16 @@ bool AudioObjectParameters::GetValue(const std::string& name, std::string& value
           GetToValue<>(Parameter_divergenceazimuth, values.divergenceazimuth, name, value) ||
           GetToValue<>(Parameter_diffuseness, values.diffuseness, name, value) ||
           GetToValue<>(Parameter_delay, values.delay, name, value) ||
-          GetToValue<>(Parameter_importance, values.importance, name, value) ||
+          GetToValue<>(Parameter_objectimportance, values.objectimportance, name, value) ||
+          GetToValue<>(Parameter_channelimportance, values.channelimportance, name, value) ||
           GetToValue<>(Parameter_dialogue, values.dialogue, name, value) ||
           GetToValue<>(Parameter_channellock, values.channellock, name, value) ||
           GetToValue<>(Parameter_channellockmaxdistance, values.channellockmaxdistance, name, value) ||
           GetToValue<>(Parameter_interact, values.interact, name, value) ||
           GetToValue<>(Parameter_interpolate, values.interpolate, name, value) ||
           GetToValue<>(Parameter_interpolationtime, values.interpolationtime, name, value) ||
-          GetToValue<>(Parameter_onscreen, values.onscreen, name, value));
+          GetToValue<>(Parameter_onscreen, values.onscreen, name, value) ||
+          GetToValue<>(Parameter_disableducking, values.disableducking, name, value));
 }
 
 /*--------------------------------------------------------------------------------*/
@@ -473,14 +525,16 @@ bool AudioObjectParameters::ResetValue(const std::string& name)
           ResetValue<>(Parameter_divergenceazimuth, values.divergenceazimuth, name) ||
           ResetValue<>(Parameter_diffuseness, values.diffuseness, name) ||
           ResetValue<>(Parameter_delay, values.delay, name) ||
-          ResetValue<>(Parameter_importance, values.importance, name) ||
+          ResetValue<>(Parameter_objectimportance, values.objectimportance, name, 10) ||
+          ResetValue<>(Parameter_channelimportance, values.channelimportance, name, 10) ||
           ResetValue<>(Parameter_dialogue, values.dialogue, name) ||
           ResetValue<>(Parameter_channellock, values.channellock, name) ||
           ResetValue<>(Parameter_channellockmaxdistance, values.channellockmaxdistance, name) ||
           ResetValue<>(Parameter_interact, values.interact, name) ||
           ResetValue<>(Parameter_interpolate, values.interpolate, name) ||
           ResetValue<>(Parameter_interpolationtime, values.interpolationtime, name) ||
-          ResetValue<>(Parameter_onscreen, values.onscreen, name));
+          ResetValue<>(Parameter_onscreen, values.onscreen, name) ||
+          ResetValue<>(Parameter_disableducking, values.disableducking, name));
 }
 
 /*--------------------------------------------------------------------------------*/
@@ -514,7 +568,8 @@ void AudioObjectParameters::ToJSON(json_spirit::mObject& obj, bool force) const
   SetToJSON<>(Parameter_divergencebalance, values.divergencebalance, obj, force);
   SetToJSON<>(Parameter_divergenceazimuth, values.divergenceazimuth, obj, force);
   SetToJSON<>(Parameter_delay, values.delay, obj, force);
-  SetToJSON<>(Parameter_importance, (int)values.importance, obj, force);
+  SetToJSON<>(Parameter_objectimportance, (int)values.objectimportance, obj, force);
+  SetToJSON<>(Parameter_channelimportance, (int)values.channelimportance, obj, force);
   SetToJSON<>(Parameter_dialogue, (int)values.dialogue, obj, force);
   SetToJSON<>(Parameter_channellock, values.channellock, obj, force);
   SetToJSON<>(Parameter_channellockmaxdistance, values.channellockmaxdistance, obj, force);
@@ -522,6 +577,7 @@ void AudioObjectParameters::ToJSON(json_spirit::mObject& obj, bool force) const
   SetToJSON<>(Parameter_interpolate, values.interpolate, obj, force);
   SetToJSON<>(Parameter_interpolationtime, (sint64_t)values.interpolationtime, obj, force);
   SetToJSON<>(Parameter_onscreen, values.onscreen, obj, force);
+  SetToJSON<>(Parameter_disableducking, values.disableducking, obj, force);
   SetToJSON<>(Parameter_othervalues, othervalues, obj, force);
   
   // output all excluded zones
@@ -551,9 +607,61 @@ void AudioObjectParameters::ToJSON(json_spirit::mObject& obj, bool force) const
     obj["excludedzones"] = zones;
   }
   
-  DEBUG2(("JSON: %s", json_spirit::write(obj, json_spirit::pretty_print).c_str()));
+  BBCDEBUG2(("JSON: %s", json_spirit::write(obj, json_spirit::pretty_print).c_str()));
 }
 #endif
+
+/*--------------------------------------------------------------------------------*/
+/** Return an object that has continuous parameters interpolated at the given point
+ *
+ * @param dst destination object to be set
+ * @param mul value between 1 and 0 representing progress through the interpolation
+ * @param a start values
+ * @param b end values
+ *
+ * @note when mul = 1, a is returned, when mul is 0, b is returned
+ * @note for non-interpolatable parameters, their values from a are used if mul >= .5 and from b is mul < .5
+ */
+/*--------------------------------------------------------------------------------*/
+void AudioObjectParameters::Interpolate(AudioObjectParameters& dst, double mul, const AudioObjectParameters& a, const AudioObjectParameters& b)
+{
+  dst = (mul >= .5f) ? a : b; // best initial value for non-interpolatable parameters
+
+  // now modify parameters that are interpolatable
+  // outside of the endstops, actually interpolate
+  if ((mul > 0.0) && (mul < 1.0))
+  {
+    // merge bitmaps of parameters set so that if parameter is set in *either* a or b it will be interpolated
+    dst.setbitmap = a.setbitmap | b.setbitmap;
+    
+    if (dst.IsParameterSet(Parameter_position))
+    {
+      Position& pos = dst.position; // destination position
+      pos.polar = b.position.polar; // positions are interpolated in the same co-ordinate system as the end values
+
+      // get position for a (start values) in same system as b to interpolate
+      Position        posa = pos.polar ? a.position.Polar() : a.position.Cart();
+      const Position& posb = b.position;    // keep b's position as it is
+      uint_t i;
+      
+      // interpolate each element of position
+      for (i = 0; i < NUMBEROF(pos.pos.elements); i++)
+      {
+        // for polar co-ordinates, ensure the azmimuth is interpolated using circular interpolation
+        dst.Interpolate<>(Parameter_position, mul, pos.pos.elements[i], posa.pos.elements[i], posb.pos.elements[i], (pos.polar && !i) ? 360.0 : 0.0);
+      }
+    }
+    
+    dst.Interpolate<>(Parameter_gain, mul, dst.values.gain, a.values.gain, b.values.gain);
+    dst.Interpolate<>(Parameter_width, mul, dst.values.width, a.values.width, b.values.width);
+    dst.Interpolate<>(Parameter_height, mul, dst.values.height, a.values.height, b.values.height);
+    dst.Interpolate<>(Parameter_depth, mul, dst.values.depth, a.values.depth, b.values.depth);
+    dst.Interpolate<>(Parameter_divergencebalance, mul, dst.values.divergencebalance, a.values.divergencebalance, b.values.divergencebalance);
+    dst.Interpolate<>(Parameter_divergenceazimuth, mul, dst.values.divergenceazimuth, a.values.divergenceazimuth, b.values.divergenceazimuth);
+    dst.Interpolate<>(Parameter_diffuseness, mul, dst.values.diffuseness, a.values.diffuseness, b.values.diffuseness);
+    dst.Interpolate<>(Parameter_channellockmaxdistance, mul, dst.values.channellockmaxdistance, a.values.channellockmaxdistance, b.values.channellockmaxdistance);
+  }
+}
 
 /*----------------------------------------------------------------------------------------------------*/
 

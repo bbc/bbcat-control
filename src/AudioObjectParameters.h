@@ -316,6 +316,23 @@ public:
   uint64_t GetActualInterpolationTime() const {return GetInterpolate() ? GetInterpolationTime() : 0;}
 
   /*--------------------------------------------------------------------------------*/
+  /** Get equivalent ADM parameters jumpPosition and interpolationLength
+   *
+   * @param jumpPosition value to be updated with jumpPosition value
+   * @param interpolationLength optional pointer to value to be updated with interpolationLength (valid ONLY IF jumpPosition == true)
+   *
+   * @return true if jumpPosition is valid (has been set)
+   */
+  /*--------------------------------------------------------------------------------*/
+  bool GetJumpPosition(bool& jumpPosition, double *interpolationLength = NULL) const;
+
+  /*--------------------------------------------------------------------------------*/
+  /** Set interpolation parameters via jumpPosition and interpolationLength ADM parameters
+   */
+  /*--------------------------------------------------------------------------------*/
+  void SetJumpPosition(bool jumpPosition, double interpolationLength);
+
+  /*--------------------------------------------------------------------------------*/
   /** Get/Set onscreen
    */
   /*--------------------------------------------------------------------------------*/

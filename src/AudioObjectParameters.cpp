@@ -448,6 +448,53 @@ void AudioObjectParameters::GetOverrideableParameterDescriptions(std::vector<con
 }
 
 /*--------------------------------------------------------------------------------*/
+/** Get equivalent ADM parameters jumpPosition and interpolationLength
+ *
+ * @param jumpPosition value to be updated with jumpPosition value
+ * @param interpolationLength optional pointer to value to be updated with interpolationLength (valid ONLY IF jumpPosition == true)
+ *
+ * @return true if jumpPosition is valid (has been set)
+ */
+/*--------------------------------------------------------------------------------*/
+bool AudioObjectParameters::GetJumpPosition(bool& jumpPosition, double *interpolationLength) const
+{
+  bool valid = GetInterpolate(jumpPosition);
+  if (valid)
+  {
+    jumpPosition &= (GetInterpolationTime() != GetDuration());
+    if (interpolationLength) *interpolationLength = jumpPosition ? GetInterpolationTimeS() : 0.0;
+  }
+  else if (interpolationLength) *interpolationLength = 0.0;
+  
+  BBCDEBUG3(("GetJumpPosition(): %s/%s -> %s/%s",
+             StringFrom(GetInterpolate()).c_str(),
+             StringFrom(GetInterpolationTimeS()).c_str(),
+             StringFrom(jumpPosition).c_str(),
+             interpolationLength ? StringFrom(*interpolationLength).c_str() : "<notset>"));
+          
+  return valid;
+}
+
+/*--------------------------------------------------------------------------------*/
+/** Set interpolation parameters via jumpPosition and interpolationLength ADM parameters
+ */
+/*--------------------------------------------------------------------------------*/
+void AudioObjectParameters::SetJumpPosition(bool jumpPosition, double interpolationLength)
+{
+  // calcuate interpolation time
+  uint64_t itime = jumpPosition ? ConvertSToNS(interpolationLength) : GetDuration();
+
+  SetInterpolate(itime > 0);
+  SetInterpolationTime(itime);
+
+  BBCDEBUG3(("SetJumpPosition(): %s/%s -> %s/%s",
+             StringFrom(jumpPosition).c_str(),
+             StringFrom(interpolationLength).c_str(),
+             StringFrom(GetInterpolate()).c_str(),
+             StringFrom(GetInterpolationTimeS()).c_str()));
+}
+
+/*--------------------------------------------------------------------------------*/
 /** Set parameter from string
  */
 /*--------------------------------------------------------------------------------*/

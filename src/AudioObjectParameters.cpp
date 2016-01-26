@@ -14,7 +14,10 @@ const PARAMETERDESC AudioObjectParameters::parameterdescs[Parameter_count] =
 
   {"duration",               "Block duration (ns)"},
   
+  {"cartesian",              "Whether channel co-ordinate system is cartesian or spherical"},
   {"position",               "Channel position"},
+  {"minposition",            "Channel minimum position"},
+  {"maxposition",            "Channel maximum position"},
 
   {"gain",                   "Channel gain (linear)"},
 
@@ -43,13 +46,19 @@ const PARAMETERDESC AudioObjectParameters::parameterdescs[Parameter_count] =
   {"othervalues",            "Other, arbitrary, channel values"},
 };
 
-AudioObjectParameters::AudioObjectParameters() : setbitmap(0),
+const Position AudioObjectParameters::nullposition;
+
+AudioObjectParameters::AudioObjectParameters() : minposition(NULL),
+                                                 maxposition(NULL),
+                                                 setbitmap(0),
                                                  excludedZones(NULL)
 {
   InitialiseToDefaults();
 }
 
-AudioObjectParameters::AudioObjectParameters(const AudioObjectParameters& obj) : setbitmap(0),
+AudioObjectParameters::AudioObjectParameters(const AudioObjectParameters& obj) : minposition(NULL),
+                                                                                 maxposition(NULL),
+                                                                                 setbitmap(0),
                                                                                  excludedZones(NULL)
 {
   InitialiseToDefaults();
@@ -57,7 +66,9 @@ AudioObjectParameters::AudioObjectParameters(const AudioObjectParameters& obj) :
 }
 
 #if ENABLE_JSON
-AudioObjectParameters::AudioObjectParameters(const json_spirit::mObject& obj) : setbitmap(0),
+AudioObjectParameters::AudioObjectParameters(const json_spirit::mObject& obj) : minposition(NULL),
+                                                                                maxposition(NULL),
+                                                                                setbitmap(0),
                                                                                 excludedZones(NULL)
 {
   InitialiseToDefaults();
@@ -67,6 +78,9 @@ AudioObjectParameters::AudioObjectParameters(const json_spirit::mObject& obj) : 
 
 AudioObjectParameters::~AudioObjectParameters()
 {
+  // delete min and max position
+  ResetMinPosition();
+  ResetMaxPosition();
   // delete entire chain of excluded zones
   ResetExcludedZones();
 }
@@ -90,6 +104,10 @@ void AudioObjectParameters::InitialiseToDefaults()
   ResetChannelImportance();
   ResetOtherValues();
   
+  // delete min and max position
+  ResetMinPosition();
+  ResetMaxPosition();
+
   // delete entire chain of excluded zones
   ResetExcludedZones();
 }
@@ -108,6 +126,11 @@ AudioObjectParameters& AudioObjectParameters::operator = (const AudioObjectParam
     othervalues    = obj.othervalues;
     setbitmap      = obj.setbitmap;
 
+    if (obj.IsMinPositionSet()) SetMinPosition(obj.GetMinPosition());
+    else                        ResetMinPosition();
+    if (obj.IsMaxPositionSet()) SetMaxPosition(obj.GetMaxPosition());
+    else                        ResetMaxPosition();
+
     // delete entire chain of excluded zones
     ResetExcludedZones();
     
@@ -118,6 +141,79 @@ AudioObjectParameters& AudioObjectParameters::operator = (const AudioObjectParam
   return *this;
 }
 
+/*--------------------------------------------------------------------------------*/
+/** Scale position and extent by scene size
+ *
+ * @note polar positions may have their angles altered by this if width != height != depth
+ * @note excluded zones will be affected by these functions
+ */
+/*--------------------------------------------------------------------------------*/
+void AudioObjectParameters::DivideByScene(float width, float height, float depth)
+{
+  Position pos = GetPosition().Cart();
+  pos.pos.x /= width;
+  pos.pos.y /= depth;
+  pos.pos.z /= height;
+  SetPosition(GetPosition().polar ? pos.Polar() : pos);
+
+  if (IsMinPositionSet())
+  {
+    Position pos = GetMinPosition().Cart();
+    pos.pos.x /= width;
+    pos.pos.y /= depth;
+    pos.pos.z /= height;
+    SetMinPosition(GetMinPosition().polar ? pos.Polar() : pos);
+  }
+
+  if (IsMaxPositionSet())
+  {
+    Position pos = GetMaxPosition().Cart();
+    pos.pos.x /= width;
+    pos.pos.y /= depth;
+    pos.pos.z /= height;
+    SetMaxPosition(GetMaxPosition().polar ? pos.Polar() : pos);
+  }
+
+  SetWidth(GetWidth() / width);
+  SetHeight(GetHeight() / height);
+  SetDepth(GetDepth() / depth);
+  
+  if (excludedZones) excludedZones->DivideByScene(width, height, depth);
+}
+
+void AudioObjectParameters::MultiplyByScene(float width, float height, float depth)
+{
+  Position pos = GetPosition().Cart();
+  pos.pos.x *= width;
+  pos.pos.y *= depth;
+  pos.pos.z *= height;
+  SetPosition(GetPosition().polar ? pos.Polar() : pos);
+
+  if (IsMinPositionSet())
+  {
+    Position pos = GetMinPosition().Cart();
+    pos.pos.x *= width;
+    pos.pos.y *= depth;
+    pos.pos.z *= height;
+    SetMinPosition(GetMinPosition().polar ? pos.Polar() : pos);
+  }
+
+  if (IsMaxPositionSet())
+  {
+    Position pos = GetMaxPosition().Cart();
+    pos.pos.x *= width;
+    pos.pos.y *= depth;
+    pos.pos.z *= height;
+    SetMaxPosition(GetMaxPosition().polar ? pos.Polar() : pos);
+  }
+
+  SetWidth(GetWidth() * width);
+  SetHeight(GetHeight() * height);
+  SetDepth(GetDepth() * depth);
+
+  if (excludedZones) excludedZones->MultiplyByScene(width, height, depth);
+}
+
 #if ENABLE_JSON
 /*--------------------------------------------------------------------------------*/
 /** Assignment operator
@@ -125,6 +221,7 @@ AudioObjectParameters& AudioObjectParameters::operator = (const AudioObjectParam
 /*--------------------------------------------------------------------------------*/
 AudioObjectParameters& AudioObjectParameters::FromJSON(const json_spirit::mObject& obj, bool reset)
 {
+  json_spirit::mObject::const_iterator it;
   Position     pval;
   ParameterSet sval;
   std::string  str;
@@ -137,7 +234,10 @@ AudioObjectParameters& AudioObjectParameters::FromJSON(const json_spirit::mObjec
   
   SetFromJSON<>(Parameter_channel, values.channel, ival, obj, reset, 0U, &Limit0u);
   SetFromJSON<>(Parameter_duration, values.duration, i64val, obj, reset, (uint64_t)0);
+  SetFromJSON<>(Parameter_cartesian, values.cartesian, bval, obj, reset);
   SetFromJSON<>(Parameter_position, position, pval, obj, reset);
+  SetFromJSON<>(Parameter_minposition, &minposition, pval, obj, reset);
+  SetFromJSON<>(Parameter_maxposition, &maxposition, pval, obj, reset);
   SetFromJSON<>(Parameter_gain, values.gain, dval, obj, reset, 1.0);
   SetFromJSON<>(Parameter_width, values.width, fval, obj, reset, 0.f, &Limit0f);
   SetFromJSON<>(Parameter_depth, values.depth, fval, obj, reset, 0.f, &Limit0f);
@@ -157,6 +257,15 @@ AudioObjectParameters& AudioObjectParameters::FromJSON(const json_spirit::mObjec
   SetFromJSON<>(Parameter_onscreen, values.onscreen, bval, obj, reset);
   SetFromJSON<>(Parameter_disableducking, values.disableducking, bval, obj, reset, (uint8_t)GetDisableDuckingDefault());
   SetFromJSON<>(Parameter_othervalues, othervalues, sval, obj, reset);
+
+  // support legacy 'importance' parameter name for channel importance
+  if ((it = obj.find("importance")) != obj.end())
+  {
+    // read value from JSON into intermediate value
+    bbcat::FromJSON(it->second, uval);
+    // use intermediate value to set parameter
+    SetParameter<>(Parameter_channelimportance, values.channelimportance, uval, &LimitImportance);
+  }
 
   // delete existing list of excluded zones
   if (excludedZones)
@@ -212,6 +321,8 @@ bool AudioObjectParameters::operator == (const AudioObjectParameters& obj) const
   bool same = ((position == obj.position) &&
                (memcmp(&values, &obj.values, sizeof(obj.values)) == 0) &&
                Compare(excludedZones, obj.excludedZones) &&
+               (GetMinPosition() == obj.GetMinPosition()) &&
+               (GetMaxPosition() == obj.GetMaxPosition()) &&
                (othervalues == obj.othervalues));
 #if BBCDEBUG_LEVEL>=4
   if (!same)
@@ -248,7 +359,10 @@ bool AudioObjectParameters::operator == (const AudioObjectParameters& obj) const
 /*--------------------------------------------------------------------------------*/
 AudioObjectParameters& AudioObjectParameters::Merge(const AudioObjectParameters& obj)
 {
-  CopyIfSet<>(obj, Parameter_position, position, obj.position);
+  CopyIfSet<>(obj, Parameter_cartesian, values.cartesian, obj.values.cartesian);
+  CopyIfSet<>(obj, Parameter_position, position, obj.GetPosition());
+  CopyIfSet<>(obj, Parameter_minposition, &minposition, obj.GetMinPosition());
+  CopyIfSet<>(obj, Parameter_maxposition, &maxposition, obj.GetMaxPosition());
   CopyIfSet<>(obj, Parameter_gain, values.gain, obj.values.gain);
   CopyIfSet<>(obj, Parameter_width, values.width, obj.values.width);
   CopyIfSet<>(obj, Parameter_depth, values.depth, obj.values.depth);
@@ -345,8 +459,8 @@ AudioObjectParameters& AudioObjectParameters::operator *= (const PositionTransfo
   else
   {
     corner.pos.x  += GetWidth();
-    corner.pos.y  += GetHeight();
-    corner.pos.z  += GetDepth();
+    corner.pos.y  += GetDepth();
+    corner.pos.z  += GetHeight();
   }
 
   corner = (corner * transform) - centre;
@@ -360,8 +474,8 @@ AudioObjectParameters& AudioObjectParameters::operator *= (const PositionTransfo
   else
   {
     SetWidth(static_cast<float>(corner.pos.x));
-    SetHeight(static_cast<float>(corner.pos.y));
-    SetDepth(static_cast<float>(corner.pos.z));
+    SetDepth(static_cast<float>(corner.pos.y));
+    SetHeight(static_cast<float>(corner.pos.z));
   }
   
   return *this;
@@ -377,7 +491,18 @@ void AudioObjectParameters::GetAll(ParameterSet& set, bool force) const
 {
   GetParameterFromParameters<>(Parameter_channel, values.channel, set, force);
   GetParameterFromParameters<>(Parameter_duration, values.duration, set, force);
+  GetParameterFromParameters<>(Parameter_cartesian, values.cartesian, set, force);
   if (force || IsParameterSet(Parameter_position)) position.SetParameters(set, parameterdescs[Parameter_position].name);
+  if (force || IsParameterSet(Parameter_minposition))
+  {
+    const Position *pos = minposition ? minposition : &nullposition;
+    pos->SetParameters(set, parameterdescs[Parameter_minposition].name);
+  }
+  if (force || IsParameterSet(Parameter_maxposition))
+  {
+    const Position *pos = maxposition ? maxposition : &nullposition;
+    pos->SetParameters(set, parameterdescs[Parameter_maxposition].name);
+  }
   GetParameterFromParameters<>(Parameter_gain, values.gain, set, force);
   GetParameterFromParameters<>(Parameter_width, values.width, set, force);
   GetParameterFromParameters<>(Parameter_depth, values.depth, set, force);
@@ -504,6 +629,7 @@ bool AudioObjectParameters::SetValue(const std::string& name, const std::string&
   // will improve the speed of this function but not break it
   return (SetFromValue<>(Parameter_gain, values.gain, name, value) ||
           SetFromValue<>(Parameter_duration, values.duration, name, value) ||
+          SetFromValueConv<uint8_t,int>(Parameter_cartesian, values.cartesian, name, value, &LimitBool) ||
           SetFromValue<>(Parameter_width, values.width, name, value, &Limit0f) ||
           SetFromValue<>(Parameter_depth, values.depth, name, value, &Limit0f) ||
           SetFromValue<>(Parameter_height, values.height, name, value, &Limit0f) ||
@@ -533,6 +659,7 @@ bool AudioObjectParameters::GetValue(const std::string& name, std::string& value
   // will improve the speed of this function but not break it
   return (GetToValue<>(Parameter_channel, values.channel, name, value) ||
           GetToValue<>(Parameter_duration, values.duration, name, value) ||
+          GetToValue<>(Parameter_cartesian, values.cartesian, name, value) ||
           GetToValue<>(Parameter_gain, values.gain, name, value) ||
           GetToValue<>(Parameter_width, values.width, name, value) ||
           GetToValue<>(Parameter_depth, values.depth, name, value) ||
@@ -563,7 +690,10 @@ bool AudioObjectParameters::ResetValue(const std::string& name)
   // will improve the speed of this function but not break it
   return (ResetValue<>(Parameter_channel, values.channel, name) ||
           ResetValue<>(Parameter_duration, values.duration, name) ||
+          ResetValue<>(Parameter_cartesian, values.cartesian, name) ||
           ResetValue<>(Parameter_position, position, name) ||
+          ResetValue<>(Parameter_minposition, &minposition, name) ||
+          ResetValue<>(Parameter_maxposition, &maxposition, name) ||
           ResetValue<>(Parameter_gain, values.gain, name, 1.0) ||
           ResetValue<>(Parameter_width, values.width, name) ||
           ResetValue<>(Parameter_depth, values.depth, name) ||
@@ -606,7 +736,10 @@ void AudioObjectParameters::ToJSON(json_spirit::mObject& obj, bool force) const
 {
   SetToJSON<>(Parameter_channel, (int)values.channel, obj, force);
   SetToJSON<>(Parameter_duration, (sint64_t)values.duration, obj, force);
+  SetToJSON<>(Parameter_cartesian, values.cartesian, obj, force);
   SetToJSON<>(Parameter_position, position, obj, force);
+  SetToJSONPtr<>(Parameter_minposition, minposition, obj, force);
+  SetToJSONPtr<>(Parameter_maxposition, maxposition, obj, force);
   SetToJSON<>(Parameter_gain, values.gain, obj, force);
   SetToJSON<>(Parameter_width, values.width, obj, force);
   SetToJSON<>(Parameter_depth, values.depth, obj, force);
@@ -680,23 +813,20 @@ void AudioObjectParameters::Interpolate(AudioObjectParameters& dst, double mul, 
   {
     // merge bitmaps of parameters set so that if parameter is set in *either* a or b it will be interpolated
     dst.setbitmap = a.setbitmap | b.setbitmap;
-    
+
     if (dst.IsParameterSet(Parameter_position))
     {
-      Position& pos = dst.position; // destination position
-      pos.polar = b.position.polar; // positions are interpolated in the same co-ordinate system as the end values
-
-      // get position for a (start values) in same system as b to interpolate
-      Position        posa = pos.polar ? a.position.Polar() : a.position.Cart();
-      const Position& posb = b.position;    // keep b's position as it is
-      uint_t i;
-      
-      // interpolate each element of position
-      for (i = 0; i < NUMBEROF(pos.pos.elements); i++)
-      {
-        // for polar co-ordinates, ensure the azmimuth is interpolated using circular interpolation
-        dst.Interpolate<>(Parameter_position, mul, pos.pos.elements[i], posa.pos.elements[i], posb.pos.elements[i], (pos.polar && !i) ? 360.0 : 0.0);
-      }
+      dst.Interpolate(Parameter_position, mul, dst.position, &a.position, &b.position);
+    }
+    if (dst.IsParameterSet(Parameter_minposition))
+    {
+      if (!dst.minposition) dst.minposition = new Position;
+      dst.Interpolate(Parameter_minposition, mul, *dst.minposition, a.minposition, b.minposition);
+    }
+    if (dst.IsParameterSet(Parameter_maxposition))
+    {
+      if (!dst.maxposition) dst.maxposition = new Position;
+      dst.Interpolate(Parameter_maxposition, mul, *dst.maxposition, a.maxposition, b.maxposition);
     }
     
     dst.Interpolate<>(Parameter_gain, mul, dst.values.gain, a.values.gain, b.values.gain);
@@ -707,6 +837,39 @@ void AudioObjectParameters::Interpolate(AudioObjectParameters& dst, double mul, 
     dst.Interpolate<>(Parameter_divergenceazimuth, mul, dst.values.divergenceazimuth, a.values.divergenceazimuth, b.values.divergenceazimuth);
     dst.Interpolate<>(Parameter_diffuseness, mul, dst.values.diffuseness, a.values.diffuseness, b.values.diffuseness);
     dst.Interpolate<>(Parameter_channellockmaxdistance, mul, dst.values.channellockmaxdistance, a.values.channellockmaxdistance, b.values.channellockmaxdistance);
+  }
+}
+
+/*--------------------------------------------------------------------------------*/
+/** Interpolate position to given point between two values
+ * @param p Parameter_xxx value
+ * @param mul progression of interpolation (IMPORTANT: see notes below!)
+ * @param pos destination for interpolated position
+ * @param a starting value
+ * @param b end value
+ *
+ * @note when mul = 1, pos will be set at a
+ * @note when mul = 0, pos will be set at b
+ * @note therefore, when interpolating, mul should *start* at 1 and *end* at 0
+ */
+/*--------------------------------------------------------------------------------*/
+void AudioObjectParameters::Interpolate(Parameter_t p, double mul, Position& pos, const Position *a, const Position *b)
+{
+  if (!a) a = &nullposition;
+  if (!b) b = &nullposition;
+  
+  pos.polar = b->polar; // positions are interpolated in the same co-ordinate system as the end values
+
+  // get position for a (start values) in same system as b to interpolate
+  Position        posa = pos.polar ? a->Polar() : a->Cart();
+  const Position& posb = *b;    // keep b's position as it is
+  uint_t i;
+      
+  // interpolate each element of position
+  for (i = 0; i < NUMBEROF(pos.pos.elements); i++)
+  {
+    // for polar co-ordinates, ensure the azmimuth is interpolated using circular interpolation
+    Interpolate<>(p, mul, pos.pos.elements[i], posa.pos.elements[i], posb.pos.elements[i], (pos.polar && !i) ? 360.0 : 0.0);
   }
 }
 
@@ -801,21 +964,27 @@ AudioObjectParameters& AudioObjectParameters::Modify(const Modifier& modifier, c
   if (modifier.rotation.IsSet())
   {
     SetPosition(GetPosition() * modifier.rotation.Get());
-    Position size(GetWidth(), GetHeight(), GetDepth());
+    if (IsMinPositionSet()) SetMinPosition(GetMinPosition() * modifier.rotation.Get());
+    if (IsMaxPositionSet()) SetMaxPosition(GetMaxPosition() * modifier.rotation.Get());
+
+    Position size(GetWidth(), GetDepth(), GetHeight());
     size *= modifier.rotation.Get();
     SetWidth(static_cast<float>(size.pos.x));
-    SetHeight(static_cast<float>(size.pos.y));
-    SetDepth(static_cast<float>(size.pos.z));
+    SetDepth(static_cast<float>(size.pos.y));
+    SetHeight(static_cast<float>(size.pos.z));
   }
   if (modifier.position.IsSet()) SetPosition(GetPosition() + modifier.position.Get());
   if (modifier.scale.IsSet())
   {
     SetPosition(GetPosition() * modifier.scale.Get());
-    Position size(GetWidth(), GetHeight(), GetDepth());
+    if (IsMinPositionSet()) SetMinPosition(GetMinPosition() * modifier.scale.Get());
+    if (IsMaxPositionSet()) SetMaxPosition(GetMaxPosition() * modifier.scale.Get());
+
+    Position size(GetWidth(), GetDepth(), GetHeight());
     size *= modifier.scale.Get();
     SetWidth(static_cast<float>(size.pos.x));
-    SetHeight(static_cast<float>(size.pos.y));
-    SetDepth(static_cast<float>(size.pos.z));
+    SetDepth(static_cast<float>(size.pos.y));
+    SetHeight(static_cast<float>(size.pos.z));
   }
   if (modifier.gain.IsSet()) SetGain(GetGain() * modifier.gain.Get());
 

@@ -130,6 +130,30 @@ public:
   void            ResetPosition()                        {ResetParameter<>(Parameter_position, position);}
 
   /*--------------------------------------------------------------------------------*/
+  /** Get/Set minimum physical position of this object
+   *
+   * @note position information is required for every channel
+   */
+  /*--------------------------------------------------------------------------------*/
+  const Position& GetMinPosition()                    const {return minposition ? *minposition : nullposition;}
+  bool            GetMinPosition(Position& val)       const {return GetParameter<>(Parameter_minposition, position, val);}
+  bool            IsMinPositionSet()                  const {return IsParameterSet(Parameter_minposition);}
+  void            SetMinPosition(const Position& val)       {SetParameter<>(Parameter_minposition, &minposition, val);}
+  void            ResetMinPosition()                        {ResetParameter<>(Parameter_minposition, &minposition);}
+
+  /*--------------------------------------------------------------------------------*/
+  /** Get/Set maximum physical position of this object
+   *
+   * @note position information is required for every channel
+   */
+  /*--------------------------------------------------------------------------------*/
+  const Position& GetMaxPosition()                    const {return maxposition ? *maxposition : nullposition;}
+  bool            GetMaxPosition(Position& val)       const {return GetParameter<>(Parameter_maxposition, position, val);}
+  bool            IsMaxPositionSet()                  const {return IsParameterSet(Parameter_maxposition);}
+  void            SetMaxPosition(const Position& val)       {SetParameter<>(Parameter_maxposition, &maxposition, val);}
+  void            ResetMaxPosition()                        {ResetParameter<>(Parameter_maxposition, &maxposition);}
+
+  /*--------------------------------------------------------------------------------*/
   /** Get/Set screen edge lock for co-ordinate
    */
   /*--------------------------------------------------------------------------------*/
@@ -139,6 +163,16 @@ public:
   void        SetScreenEdgeLock(const std::string& coordinate, const std::string& val)       {SetOtherValue(GetScreenEdgeLockKey(coordinate), val);}
   void        ResetScreenEdgeLock(const std::string& coordinate)                             {ResetOtherValue(GetScreenEdgeLockKey(coordinate));}
   static bool IsScreenEdgeLockValue(const std::string& val)                                  {return (val.find("screenedgelock.") == 0);}
+
+  /*--------------------------------------------------------------------------------*/
+  /** Get/Set cartesian
+   */
+  /*--------------------------------------------------------------------------------*/
+  bool   GetCartesian()          const {return (values.cartesian != 0);}
+  bool   GetCartesian(bool& val) const {return GetBoolParameter<>(Parameter_cartesian, values.cartesian, val);}
+  bool   IsCartesianSet()        const {return IsParameterSet(Parameter_cartesian);}
+  void   SetCartesian(bool  val)       {SetParameter<>(Parameter_cartesian, values.cartesian, val);}
+  void   ResetCartesian()              {ResetParameter<>(Parameter_cartesian, values.cartesian);}
 
   /*--------------------------------------------------------------------------------*/
   /** Get/Set gain
@@ -331,7 +365,7 @@ public:
    */
   /*--------------------------------------------------------------------------------*/
   void SetJumpPosition(bool jumpPosition, double interpolationLength);
-
+  
   /*--------------------------------------------------------------------------------*/
   /** Get/Set onscreen
    */
@@ -352,7 +386,17 @@ public:
   void   SetDisableDucking(bool val)        {SetParameter<>(Parameter_disableducking, values.disableducking, val);}
   void   ResetDisableDucking()              {ResetParameter<>(Parameter_disableducking, values.disableducking, GetDisableDuckingDefault());}
   static bool GetDisableDuckingDefault()    {return false;}
-  
+
+  /*--------------------------------------------------------------------------------*/
+  /** Scale position and extent by scene size
+   *
+   * @note polar positions may have their angles altered by this if width != height != depth
+   * @note excluded zones will be affected by these functions
+   */
+  /*--------------------------------------------------------------------------------*/
+  void DivideByScene(float width, float height, float depth);
+  void MultiplyByScene(float width, float height, float depth);
+    
   /*--------------------------------------------------------------------------------*/
   /** Get/Set supplementary data
    */
@@ -527,6 +571,25 @@ public:
 	 */
 	/*--------------------------------------------------------------------------------*/
 	const ExcludedZone *GetNext() const {return next;}
+
+    /*--------------------------------------------------------------------------------*/
+    /** Scale excluded zones by scene
+     */
+    /*--------------------------------------------------------------------------------*/
+    void DivideByScene(float width, float height, float depth)
+    {
+      minx /= width;  maxx /= width;
+      miny /= depth;  maxy /= depth;
+      minz /= height; maxz /= height;
+      if (next) next->DivideByScene(width, height, depth);
+    }
+    void MultiplyByScene(float width, float height, float depth)
+    {
+      minx *= width;  maxx *= width;
+      miny *= depth;  maxy *= depth;
+      minz *= height; maxz *= height;
+      if (next) next->MultiplyByScene(width, height, depth);
+    }
 	
   protected:
 	ExcludedZone *next;
@@ -756,7 +819,10 @@ protected:
     Parameter_channel = 0,
     Parameter_duration,
     
+    Parameter_cartesian,
     Parameter_position,
+    Parameter_minposition,
+    Parameter_maxposition,
 
     Parameter_gain,
 
@@ -828,6 +894,29 @@ protected:
   void SetParameter(Parameter_t p, T1& param, const T2& val, T1 (*limit)(const T2& val) = NULL) {param = limit ? (*limit)(val) : T1(val); MarkParameterSet(p);}
 
   /*--------------------------------------------------------------------------------*/
+  /** Set parameter from value
+   *
+   * Template parameters:
+   * @param T1 type of parameter
+   * @param T2 type of value
+   *
+   * Function parameters:
+   * @param p Parameter_xxx parameter enumeration
+   * @param param ptr to pointer type final destination of value
+   * @param val new value
+   * @param limit optional function ptr to a limiting/converting function that will convert the supplied value to a usable parameter value
+   *
+   * @note *param may be new'd as part of this function 
+   */
+  /*--------------------------------------------------------------------------------*/
+  template<typename T1, typename T2>
+  void SetParameter(Parameter_t p, T1 **param, const T2& val, T1 (*limit)(const T2& val) = NULL) {
+    if (!*param) *param = new T1;
+    **param = limit ? (*limit)(val) : T1(val);
+    MarkParameterSet(p);
+  }
+  
+  /*--------------------------------------------------------------------------------*/
   /** Get parameter to value
    *
    * Template parameters:
@@ -844,6 +933,24 @@ protected:
   /*--------------------------------------------------------------------------------*/
   template<typename T1, typename T2>
   bool GetParameter(Parameter_t p, const T1& param, T2& val, T2 (*convert)(const T1& val) = NULL) const {val = convert ? (*convert)(param) : T2(param); return IsParameterSet(p);}
+
+  /*--------------------------------------------------------------------------------*/
+  /** Get parameter to value
+   *
+   * Template parameters:
+   * @param T1 type of parameter
+   * @param T2 type of value to be return
+   *
+   * Function parameters:
+   * @param p Parameter_xxx parameter enumeration
+   * @param param ptr to parameter source
+   * @param val destination value
+   *
+   * @return true if value has been set, false if it is at its default
+   */
+  /*--------------------------------------------------------------------------------*/
+  template<typename T1, typename T2>
+  bool GetParameter(Parameter_t p, const T1 *param, T2& val, T2 (*convert)(const T1& val) = NULL) const {val = (param && convert) ? (*convert)(*param) : T2(param); return IsParameterSet(p);}
 
   /*--------------------------------------------------------------------------------*/
   /** Get parameter to bool value
@@ -880,6 +987,28 @@ protected:
   void ResetParameter(Parameter_t p, T1& param, const T2& val) {param = val; MarkParameterReset(p);}
 
   /*--------------------------------------------------------------------------------*/
+  /** Reset parameter
+   *
+   * Template parameters:
+   * @param T1 type of parameter
+   * @param T2 type of reset value
+   *
+   * Function parameters:
+   * @param p Parameter_xxx parameter enumeration
+   * @param param ptr to pointer type final destination of value
+   * @param val reset value
+   *
+   * @note *param may be new'd as part of this function 
+   */
+  /*--------------------------------------------------------------------------------*/
+  template<typename T1, typename T2>
+  void ResetParameter(Parameter_t p, T1 **param, const T2& val) {
+    if (!*param) *param = new T1;
+    **param = val;
+    MarkParameterReset(p);
+  }
+
+  /*--------------------------------------------------------------------------------*/
   /** Reset parameter to 'zero'
    *
    * Template parameters:
@@ -892,6 +1021,29 @@ protected:
   /*--------------------------------------------------------------------------------*/
   template<typename T1>
   void ResetParameter(Parameter_t p, T1& param) {param = T1(); MarkParameterReset(p);}
+
+  /*--------------------------------------------------------------------------------*/
+  /** Reset parameter to 'zero'
+   *
+   * Template parameters:
+   * @param T1 type of parameter
+   *
+   * Function parameters:
+   * @param p Parameter_xxx parameter enumeration
+   * @param param ptr to pointer type final destination of value
+   *
+   * @note *param may be deleted as part of this function 
+   */
+  /*--------------------------------------------------------------------------------*/
+  template<typename T1>
+  void ResetParameter(Parameter_t p, T1 **param) {
+    if (*param)
+    {
+      delete *param;
+      *param = NULL;
+    }
+    MarkParameterReset(p);
+  }
 
   /*--------------------------------------------------------------------------------*/
   /** Set parameter in ParameterSet from specified parameter
@@ -933,6 +1085,37 @@ protected:
       if (Evaluate(value, val))
       {
         param = limit ? (*limit)(val) : val;
+        MarkParameterSet(p);
+        success = true;
+      }
+    }
+    return success;
+  }
+
+  /*--------------------------------------------------------------------------------*/
+  /** Set parameter from string representation
+   *
+   * @param p Parameter_xxx index to check against
+   * @param param ptr to pointer type parameter to set
+   * @param name parameter name
+   * @param value value
+   * @param limit ptr to limit function or NULL
+   *
+   * @return true if parameter was set from string
+   *
+   * @note *param may be new'd as part of this function
+   */
+  /*--------------------------------------------------------------------------------*/
+  template<typename T1>
+  bool SetFromValue(Parameter_t p, T1 **param, const std::string& name, const std::string& value, T1 (*limit)(const T1& val) = NULL) {
+    bool success = false;
+    if (name == parameterdescs[p].name)
+    {
+      T1 val;
+      if (Evaluate(value, val))
+      {
+        if (!*param) *param = new T1;
+        **param = limit ? (*limit)(val) : val;
         MarkParameterSet(p);
         success = true;
       }
@@ -1012,6 +1195,27 @@ protected:
   }
 
   /*--------------------------------------------------------------------------------*/
+  /** Reset parameter to zero by name
+   *
+   * @param p Parameter_xxx index to check against
+   * @param param ptr to parameter to reset
+   * @param name parameter name
+   *
+   * @return true if parameter was reset
+   */
+  /*--------------------------------------------------------------------------------*/
+  template<typename T1>
+  bool ResetValue(Parameter_t p, T1 *param, const std::string& name) {
+    bool success = false;
+    if (name == parameterdescs[p].name)
+    {
+      ResetParameter<>(p, param);
+      success = true;
+    }
+    return success;
+  }
+
+  /*--------------------------------------------------------------------------------*/
   /** Reset parameter to specified value by name
    *
    * @param p Parameter_xxx index to check against
@@ -1068,6 +1272,41 @@ protected:
   }    
 
   /*--------------------------------------------------------------------------------*/
+  /** Set parameter from JSON
+   *
+   * Template parameters:
+   * @param T1 type of parameter
+   * @param T2 intermediate type that JSON framework can manage
+   *
+   * Function parameters:
+   * @param p Parameter_xxx parameter enumeration
+   * @param param ptr to pointer type final destination of value
+   * @param val intermediate value as read from JSON
+   * @param obj JSON object
+   * @param reset true to reset parameter to its default if it is not found in the JSON object
+   * @param defval reset value if reset = true
+   * @param limit optional function ptr to a limiting/converting function that will convert the JSON value to a usable parameter value
+   *
+   * @note *param may be new'd or deleted as part of this function
+   */
+  /*--------------------------------------------------------------------------------*/
+  template<typename T1, typename T2>
+  void SetFromJSON(Parameter_t p, T1 **param, T2& val, const json_spirit::mObject& obj, bool reset = false, const T1& defval = T1(), T1 (*limit)(const T2& val) = NULL)
+  {
+    json_spirit::mObject::const_iterator it;
+    // try and find named item in object
+    if ((it = obj.find(parameterdescs[p].name)) != obj.end())
+    {
+      // read value from JSON into intermediate value
+      bbcat::FromJSON(it->second, val);
+      // use intermediate value to set parameter
+      SetParameter<>(p, param, val, limit);
+    }
+    // if not found, reset parameter to default
+    else if (reset) ResetParameter<>(p, param, defval);
+  }    
+
+  /*--------------------------------------------------------------------------------*/
   /** Set JSON from parameter
    *
    * Template parameters:
@@ -1091,6 +1330,25 @@ protected:
    *
    * Template parameters:
    * @param T1 type of parameter
+   *
+   * Function parameters:
+   * @param p Parameter_xxx parameter enumeration
+   * @param param ptr to parameter value
+   * @param obj JSON object
+   * @param force true to force parameters to be set, even if they have not been set
+   */
+  /*--------------------------------------------------------------------------------*/
+  template<typename T1>
+  void SetToJSONPtr(Parameter_t p, const T1 *param, json_spirit::mObject& obj, bool force = false) const
+  {
+    if (force || IsParameterSet(p)) obj[parameterdescs[p].name] = bbcat::ToJSON(param ? *param : T1());
+  }    
+
+  /*--------------------------------------------------------------------------------*/
+  /** Set JSON from parameter
+   *
+   * Template parameters:
+   * @param T1 type of parameter
    * @param T2 type of JSON storage
    *
    * Function parameters:
@@ -1106,6 +1364,27 @@ protected:
   {
     if (force || IsParameterSet(p)) obj[parameterdescs[p].name] = bbcat::ToJSON((*convert)(param));
   }    
+
+  /*--------------------------------------------------------------------------------*/
+  /** Set JSON from parameter
+   *
+   * Template parameters:
+   * @param T1 type of parameter
+   * @param T2 type of JSON storage
+   *
+   * Function parameters:
+   * @param p Parameter_xxx parameter enumeration
+   * @param param ptr to parameter value
+   * @param obj JSON object
+   * @param force true to force parameters to be set, even if they have not been set
+   * @param convert function to convert T1 to T2
+   */
+  /*--------------------------------------------------------------------------------*/
+  template<typename T1, typename T2>
+  void SetToJSON(Parameter_t p, const T1 *param, json_spirit::mObject& obj, bool force, T2 (*convert)(const T1& val)) const
+  {
+    if (force || IsParameterSet(p)) obj[parameterdescs[p].name] = bbcat::ToJSON((*convert)(param ? *param : T1()));
+  }    
 #endif
 
   /*--------------------------------------------------------------------------------*/
@@ -1117,6 +1396,22 @@ protected:
 	if (obj.IsParameterSet(p))
 	{
 	  dst = src;
+	  MarkParameterSet(p);
+	}
+  }
+
+  /*--------------------------------------------------------------------------------*/
+  /** Copy parameter from obj if it is set in obj (pointer types)
+   *
+   * @note *dst may be new'd as part of this function
+   */
+  /*--------------------------------------------------------------------------------*/
+  template<typename T1>
+  void CopyIfSet(const AudioObjectParameters& obj, Parameter_t p, T1 **dst, const T1& src) {
+	if (obj.IsParameterSet(p))
+	{
+      if (!*dst) *dst = new T1;
+	  **dst = src;
 	  MarkParameterSet(p);
 	}
   }
@@ -1170,6 +1465,21 @@ protected:
   }
 
   /*--------------------------------------------------------------------------------*/
+  /** Interpolate position to given point between two values
+   * @param p Parameter_xxx value
+   * @param mul progression of interpolation (IMPORTANT: see notes below!)
+   * @param pos destination for interpolated position
+   * @param a starting value
+   * @param b end value
+   *
+   * @note when mul = 1, pos will be set at a
+   * @note when mul = 0, pos will be set at b
+   * @note therefore, when interpolating, mul should *start* at 1 and *end* at 0
+   */
+  /*--------------------------------------------------------------------------------*/
+  void Interpolate(Parameter_t p, double mul, Position& pos, const Position *a, const Position *b);
+
+  /*--------------------------------------------------------------------------------*/
   /** Mark parameter p as being set
    */
   /*--------------------------------------------------------------------------------*/
@@ -1213,6 +1523,7 @@ protected:
     float    divergencebalance;
 	float    channellockmaxdistance;
     uint_t   channel;
+    uint8_t  cartesian;
     uint8_t  objectimportance;
     uint8_t  channelimportance;
     uint8_t  dialogue;
@@ -1224,13 +1535,14 @@ protected:
   } VALUES;
       
 protected:
-  Position     position;
+  Position     position, *minposition, *maxposition;    // min and max position allocated a run time to save memory
   VALUES       values;
-  uint_t       setbitmap;                           // bitmap of values that (good up to 32 items)
-  ParameterSet othervalues;                         // additional, arbitrary parameters
+  uint_t       setbitmap;                               // bitmap of values that (good up to 32 items)
+  ParameterSet othervalues;                             // additional, arbitrary parameters
   ExcludedZone *excludedZones;
   
   static const PARAMETERDESC parameterdescs[Parameter_count];
+  static const Position nullposition;
 };
 
 BBC_AUDIOTOOLBOX_END

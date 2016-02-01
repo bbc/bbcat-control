@@ -326,7 +326,7 @@ public:
   bool   GetInterpolate(bool& val) const {return GetBoolParameter<>(Parameter_interpolate, values.interpolate, val);}
   bool   IsInterpolateSet()        const {return IsParameterSet(Parameter_interpolate);}
   void   SetInterpolate(bool  val)       {SetParameter<>(Parameter_interpolate, values.interpolate, val);}
-  void   ResetInterpolate()              {ResetParameter<>(Parameter_interpolate, values.interpolate);}
+  void   ResetInterpolate()              {ResetParameter<>(Parameter_interpolate, values.interpolate, true);}
 
   /*--------------------------------------------------------------------------------*/
   /** Get/Set interpolation time (ns by default)

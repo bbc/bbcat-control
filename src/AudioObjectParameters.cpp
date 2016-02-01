@@ -102,6 +102,7 @@ void AudioObjectParameters::InitialiseToDefaults()
   ResetGain();
   ResetObjectImportance();
   ResetChannelImportance();
+  ResetInterpolate();
   ResetOtherValues();
   
   // delete min and max position
@@ -252,7 +253,7 @@ AudioObjectParameters& AudioObjectParameters::FromJSON(const json_spirit::mObjec
   SetFromJSON<>(Parameter_channellock, values.channellock, bval, obj, reset);
   SetFromJSON<>(Parameter_channellockmaxdistance, values.channellockmaxdistance, fval, obj, reset, 0.f, &LimitMaxDistance);
   SetFromJSON<>(Parameter_interact, values.interact, bval, obj, reset, (uint8_t)GetInteractDefault());
-  SetFromJSON<>(Parameter_interpolate, values.interpolate, bval, obj, reset);
+  SetFromJSON<>(Parameter_interpolate, values.interpolate, bval, obj, reset, (uint8_t)1);
   SetFromJSON<>(Parameter_interpolationtime, values.interpolationtime, i64val, obj, reset, (uint64_t)0);
   SetFromJSON<>(Parameter_onscreen, values.onscreen, bval, obj, reset);
   SetFromJSON<>(Parameter_disableducking, values.disableducking, bval, obj, reset, (uint8_t)GetDisableDuckingDefault());

@@ -561,9 +561,9 @@ public:
 	/*--------------------------------------------------------------------------------*/
 	bool Within(const Position& _pos) const {
 	  Position pos = _pos.Cart();
-	  return ((RANGE(pos.pos.x, minx, maxx) &&
-			   RANGE(pos.pos.y, miny, maxy) &&
-			   RANGE(pos.pos.z, minx, maxz)) || (next && next->Within(pos)));
+	  return ((limited::inrange(pos.pos.x, (double)minx, (double)maxx) &&
+			   limited::inrange(pos.pos.y, (double)miny, (double)maxy) &&
+			   limited::inrange(pos.pos.z, (double)minx, (double)maxz)) || (next && next->Within(pos)));
 	}
 
 	/*--------------------------------------------------------------------------------*/
@@ -863,17 +863,17 @@ protected:
   /** Limit functions for various parameters
    */
   /*--------------------------------------------------------------------------------*/
-  static uint8_t  LimitImportance(const uint_t& val)  {return MIN(val, 10);}
-  static uint8_t  LimitDialogue(const uint_t& val)    {return MIN(val, 2);}
+  static uint8_t  LimitImportance(const uint_t& val)  {return std::min(val, 10u);}
+  static uint8_t  LimitDialogue(const uint_t& val)    {return std::min(val, 2u);}
   static uint8_t  LimitBool(const int& val)           {return (val != 0);}
-  static uint_t   Limit0u(const int& val)             {return MAX(val, 0);}              // at least 0
-  static uint64_t Limit0u64(const sint64_t& val)      {return MAX(val, 0);}              // at least 0
-  static double   Limit0(const double& val)           {return MAX(val, 0.0);}            // at least 0
-  static float    Limit0f(const float& val)           {return MAX(val, 0.f);}            // at least 0
-  static double   Limit0to1(const double& val)        {return LIMIT(val, 0.0, 1.0);}     // between 0 and 1
-  static float    Limit0to1f(const float& val)        {return LIMIT(val, 0.f, 1.f);}     // between 0 and 1
-  static float    LimitMaxDistance(const float& val)  {return LIMIT(val, 0.f, 2.f);}     // between 0 and 2
-  static uint64_t ConvertSToNS(const double& val)     {return (uint64_t)MAX(val * 1.0e9, 0.0);}
+  static uint_t   Limit0u(const int& val)             {return std::max(val, 0);}                // at least 0
+  static uint64_t Limit0u64(const sint64_t& val)      {return std::max(val, (sint64_t)0);}      // at least 0
+  static double   Limit0(const double& val)           {return std::max(val, 0.0);}              // at least 0
+  static float    Limit0f(const float& val)           {return std::max(val, 0.f);}              // at least 0
+  static double   Limit0to1(const double& val)        {return limited::limit(val, 0.0, 1.0);}       // between 0 and 1
+  static float    Limit0to1f(const float& val)        {return limited::limit(val, 0.f, 1.f);}       // between 0 and 1
+  static float    LimitMaxDistance(const float& val)  {return limited::limit(val, 0.f, 2.f);}       // between 0 and 2
+  static uint64_t ConvertSToNS(const double& val)     {return (uint64_t)std::max(val * 1.0e9, 0.0);}
   static double   ConvertNSToS(const uint64_t& val)   {return (double)val * 1.0e-9;}
   
   /*--------------------------------------------------------------------------------*/
@@ -1440,27 +1440,27 @@ protected:
       
       // if range is supplied, only do circular interpolation if both start and end within [-range, range]
       if ((range != T()) &&
-          RANGE(a, -range, range) &&
-          RANGE(b, -range, range))
+          limited::inrange(a, -range, range) &&
+          limited::inrange(b, -range, range))
       {
         // calculate full range
         T modulus = range + range;
         // if the diff is -ve, choose maximum of diff and 
-        if (diff < T()) diff = -MIN(-diff, modulus + diff);
+        if (diff < T()) diff = -std::min(-diff, modulus + diff);
         // else choose minimum of diff and modulus - diff (shortest distance)
-        else            diff =  MIN( diff, modulus - diff);
+        else            diff =  std::min( diff, modulus - diff);
         // examples (all assuming modulus = 360):
         //    a    b  diff  other diff  shortest
         //  -20   20    40         320        40
         //   20  -20   -40        -320       -40
         // -170  170   340          20        20
         //  170 -170  -340         -20       -20
-        dst = T(b + MAX(mul, 0.0) * diff);
+        dst = T(b + std::max(mul, 0.0) * diff);
         // ensure result remains within range
         while (dst <  -range) dst += modulus;
         while (dst >=  range) dst -= modulus;
       }
-      else dst = T(b + MAX(mul, 0.0) * diff);
+      else dst = T(b + std::max(mul, 0.0) * diff);
     }
   }
 

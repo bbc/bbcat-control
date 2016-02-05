@@ -12,6 +12,7 @@ BBC_AUDIOTOOLBOX_START
  * Typically, an instance of a derived version of this class would be used for each track
  */
 /*--------------------------------------------------------------------------------*/
+class AudioObject;
 class AudioObjectCursor
 {
 public:

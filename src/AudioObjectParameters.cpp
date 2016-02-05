@@ -407,8 +407,8 @@ void AudioObjectParameters::AddExcludedZone(const std::string& name, float x1, f
   if ((zone = new ExcludedZone) != NULL)
   {
     zone->SetName(name);
-    zone->SetMinCorner(MIN(x1, x2), MIN(y1, y2), MIN(z1, z2));
-    zone->SetMaxCorner(MAX(x1, x2), MAX(y1, y2), MAX(z1, z2));
+    zone->SetMinCorner(std::min(x1, x2), std::min(y1, y2), std::min(z1, z2));
+    zone->SetMaxCorner(std::max(x1, x2), std::max(y1, y2), std::max(z1, z2));
 
     // if chain already exists, append this one to the end
     if (excludedZones) excludedZones->Add(zone);
